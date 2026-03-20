@@ -1,0 +1,6 @@
+[
+  {
+    "name": "add_status_logging",
+    "description": "Add a function called log_status() to main_app.py that writes a timestamped heartbeat status message to logs/status.log every time it is called."
+  }
+]
