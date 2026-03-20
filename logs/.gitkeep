@@ -1,0 +1,3 @@
+# This file ensures the logs/ directory is tracked by git.
+# Runtime log files (system.log, status.log) are generated here
+# and read by the ObserverAgent.
