@@ -17,31 +17,37 @@ Three specialized agents operate in a continuous loop:
 | **Auditor** | The Immune System | Validates patches, runs tests in sandbox |
 | **Planner** | The Growth Engine | Implements new features from the feature queue |
 
-A **Supervisor** orchestrates all agents, and a **GitManager** ensures every evolution is committed, reversible, and auditable.
+A **Supervisor** orchestrates all agents, supported by a **GitManager** for version control and a **NANDABridge** for distributed interoperability.
 
----
+## Core Evolution Components
+
+- **Epoch Tracker** (`evolution/epoch_tracker.py`): Tracks agent lifecycle, fitness scores, and "Hall of Fame" across evolution epochs.
+- **Evolution Reporter** (`evolution/reporting.py`): Provides extensive analytics on mutations, success rates, and lineage performance.
+- **NANDA Bridge** (`evolution/nanda_bridge.py`): Integrates with the [NANDA Protocol](https://github.com/AGI-Corporation/nanda-sdk) for distributed analysis and cross-agent communication.
 
 ## Project Structure
 
-```
+```text
 evolution-agent/
-├── evolution/                 # Core self-evolution module
+├── evolution/           # Core self-evolution module
 │   ├── __init__.py
-│   ├── agents.py              # Observer, Architect, Auditor, Planner agents
-│   ├── engine.py              # Main loop controller
-│   ├── sandbox.py             # Safe code execution & test runner
-│   ├── supervisor.py          # Orchestration of agents + git
-│   ├── version_control.py     # Git integration for safe rollback
-│   ├── memory.json            # Long-term memory of successful evolutions
-│   └── feature_queue.json     # Queue of feature requests for the Planner
+│   ├── agents.py        # Observer, Architect, Auditor, Planner agents
+│   ├── engine.py        # Main loop controller
+│   ├── epoch_tracker.py # NEW: Epoch and fitness tracking
+│   ├── reporting.py     # NEW: Extensive reporting and analytics
+│   ├── nanda_bridge.py  # NEW: NANDA Protocol interoperability
+│   ├── sandbox.py       # Safe code execution & test runner
+│   ├── supervisor.py    # Orchestration of agents + git
+│   ├── version_control.py # Git integration for safe rollback
+│   ├── memory.json      # Long-term memory of successful evolutions
+│   └── feature_queue.json # Queue of feature requests for the Planner
 ├── logs/
-│   └── system.log             # Runtime logs (read by Observer)
-├── main_app.py                # The host application (evolved by the system)
+│   ├── system.log       # Runtime logs (read by Observer)
+│   └── reports/         # Generated evolution reports
+├── main_app.py          # The host application (evolved by the system)
 ├── requirements.txt
 └── README.md
 ```
-
----
 
 ## How It Works
 
@@ -50,94 +56,28 @@ evolution-agent/
 1. **Ingest** — The Observer reads `logs/system.log` (errors) and `evolution/feature_queue.json` (goals).
 2. **Reason** — Agents decide what code needs to be written or fixed.
 3. **Verify** — The Auditor checks syntax; the Sandbox runs tests.
-4. **Persist** — GitManager commits changes, making evolutions permanent and reversible.
-5. **Repeat** — The loop continues, continuously improving the codebase.
+4. **Persist** — GitManager commits changes, and EpochTracker logs the cycle's fitness.
+5. **Report** — EvolutionReporter generates performance analytics.
+6. **Repeat** — The loop continues, continuously improving the codebase.
 
-### Self-Fix Flow
+## Interoperability (NANDA Protocol)
 
-```
-Cycle:
-  ObserverAgent  →  reads system.log  →  detects ZeroDivisionError
-  ArchitectAgent →  reads main_app.py →  LLM generates fix patch
-  AuditorAgent   →  validates syntax  →  approves patch
-  Sandbox        →  runs pytest       →  tests pass
-  GitManager     →  commits fix       →  evolution logged to memory.json
-```
-
-### Feature Request Flow
-
-Drop a request into `evolution/feature_queue.json`:
-
-```json
-[
-  {
-    "name": "add_logging",
-    "description": "Add a function to log system status to logs/status.log with a timestamp."
-  }
-]
-```
-
-The Planner agent will implement it, the Sandbox will verify it, and GitManager will commit it — all automatically.
-
----
-
-## Runtime Context Bridge
-
-Based on the `interplaynetary/playtime` concept, this repo also includes a `runtime_context_bridge` tool that allows agents and humans to inspect live runtime state before generating code:
-
-- `source_snapshot` — current code block for a given scope
-- `runtime_values` — actual variable values at execution time
-- `dependency_map` — what modules/functions the scope depends on
-- `diff_context` — suggested injection points for new code
-
-This prevents "blind coding" — agents always have a full mental model of the current state before proposing changes.
-
----
-
-## Quick Start
-
-### Prerequisites
-
-```bash
-pip install -r requirements.txt
-```
-
-Set your LLM API key:
-
-```bash
-export OPENAI_API_KEY=your_key_here
-```
-
-### Run the Host App (to generate an error log)
-
-```bash
-python main_app.py 2> logs/system.log
-```
-
-### Start the Evolution Engine
-
-```bash
-python -m evolution.supervisor
-```
+The system now supports the **NANDA Protocol**, allowing it to collaborate with external agents (like Max Health or CMMC compliance agents). By broadcasting mutation tasks, the Evolution Agent can leverage a distributed network for complex analysis.
 
 ---
 
 ## Safety Features
 
-- **Git Branching** — Every evolution runs on a dedicated `fix/<timestamp>` branch.
+- **Git Branching** — Every evolution runs on a dedicated `fix/` branch.
 - **Sandbox Testing** — Patches are syntax-checked and pytest-validated before applying.
 - **Rollback** — Failed evolutions trigger `git reset --hard HEAD~1` automatically.
 - **Memory Bank** — `memory.json` logs all successful evolutions for future reference.
-- **Human-in-the-Loop (optional)** — The Auditor can be configured to send Slack/webhook approval requests before applying critical changes.
-
----
 
 ## Based On
 
 - [AGI-Corporation/ralph](https://github.com/AGI-Corporation/ralph) — The base operational codebase (Body)
 - [interplaynetary/playtime](https://github.com/interplaynetary/playtime) — Agent-Native Development Environment concept
-
----
+- [AGI-Corporation/nanda-sdk](https://github.com/AGI-Corporation/nanda-sdk) — NANDA Protocol for agent interoperability
 
 ## License
 
