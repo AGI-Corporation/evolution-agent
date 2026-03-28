@@ -68,10 +68,11 @@ class ObserverAgent(BaseAgent):
             "timestamp": datetime.now().isoformat(),
         }
 
-        # Detect common error patterns
+        # Detect common error patterns (more specific keywords first to avoid
+        # "Error" swallowing subclass names like "ZeroDivisionError")
         error_keywords = [
-            "Error", "Exception", "Traceback", "CRITICAL", "FATAL",
             "ZeroDivisionError", "NameError", "TypeError", "AttributeError",
+            "Traceback", "CRITICAL", "FATAL", "Exception", "Error",
         ]
         for keyword in error_keywords:
             if keyword in log_content:
