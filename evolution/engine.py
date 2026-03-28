@@ -3,10 +3,13 @@
 
 import os
 import json
+import logging
 import time
 from datetime import datetime
 from evolution.agents import ObserverAgent, ArchitectAgent, AuditorAgent
 from evolution.sandbox import Sandbox
+
+logger = logging.getLogger(__name__)
 
 
 class EvolutionEngine:
@@ -74,6 +77,7 @@ class EvolutionEngine:
         Returns True if an evolution was performed, False if system is healthy.
         """
         print(f"\n[{datetime.now().isoformat()}] Starting Evolution Cycle...")
+        logger.debug("[Engine] === Step 1: Observe ===")
 
         # Step 1: Observe
         issue = self.observer.act(self.log_path)
@@ -82,25 +86,33 @@ class EvolutionEngine:
             return False
 
         print(f"[Engine] Issue detected: {issue['type']}")
+        logger.debug("[Engine] Issue details:\n%s", json.dumps(issue, indent=2))
 
         # Step 2: Read source
+        logger.debug("[Engine] === Step 2: Read Source ===")
         source_code = self.read_source()
         if not source_code:
             print("[Engine] Cannot read source. Aborting cycle.")
             return False
+        logger.debug("[Engine] Source code read (%d chars)", len(source_code))
 
         # Step 3: Architect generates fix
+        logger.debug("[Engine] === Step 3: Architect ===")
         proposed_patch = self.architect.act(issue, source_code)
         if not proposed_patch:
             print("[Engine] Architect failed to generate a patch. Aborting cycle.")
             return False
+        logger.debug("[Engine] Proposed patch (%d chars)", len(proposed_patch))
 
         # Step 4: Auditor validates
+        logger.debug("[Engine] === Step 4: Audit ===")
         if not self.auditor.act(proposed_patch):
             print("[Engine] Auditor rejected the patch. Evolution aborted.")
             return False
+        logger.debug("[Engine] Patch passed auditor validation")
 
         # Step 5: Sandbox applies
+        logger.debug("[Engine] === Step 5: Apply ===")
         success = self.sandbox.verify_and_apply(proposed_patch, self.target_file)
         if success:
             print(f"[Engine] Evolution Successful!")
@@ -121,6 +133,7 @@ class EvolutionEngine:
         cycle_count = 0
 
         while True:
+            logger.debug("[Engine] === Cycle %d ===", cycle_count + 1)
             self.run_evolution_cycle()
             cycle_count += 1
 
@@ -128,12 +141,34 @@ class EvolutionEngine:
                 print(f"[Engine] Reached max cycles ({max_cycles}). Stopping.")
                 break
 
+            logger.debug("[Engine] Cycle complete. Sleeping %ds...", interval)
             print(f"[Engine] Sleeping for {interval}s...")
             time.sleep(interval)
 
 
 if __name__ == "__main__":
     import sys
-    root = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
-    engine = EvolutionEngine(root)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Evolution Engine")
+    parser.add_argument(
+        "root",
+        nargs="?",
+        default=os.getcwd(),
+        help="Project root directory (default: current directory)",
+    )
+    parser.add_argument(
+        "--debug", "-debug",
+        action="store_true",
+        help="Enable verbose debug logging (shows LLM prompts, responses, and detailed step traces)",
+    )
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.WARNING,
+        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+
+    engine = EvolutionEngine(args.root)
     engine.run()

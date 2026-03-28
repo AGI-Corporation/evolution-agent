@@ -4,11 +4,14 @@
 
 import os
 import json
+import logging
 import time
 import uuid
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import List, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -79,6 +82,7 @@ class EpochTracker:
             self.current_epoch = data.get("current_epoch", 0)
             self.history = data.get("history", [])
             print(f"[EpochTracker] Resumed from Epoch {self.current_epoch}.")
+            logger.debug("[EpochTracker] Loaded %d history records from %s", len(self.history), self.checkpoint_path)
         except FileNotFoundError:
             print("[EpochTracker] No prior checkpoint found. Starting fresh.")
 
@@ -172,6 +176,7 @@ class EpochTracker:
 
         self.population[version_id] = agent
         print(f"[EpochTracker] Registered: {version_id}  (parent={parent_id})")
+        logger.debug("[EpochTracker] Agent params: %s", mutation_params)
         return agent
 
     def log_performance(
@@ -199,6 +204,7 @@ class EpochTracker:
         record = {**asdict(agent), "logged_at": datetime.now().isoformat()}
         self.history.append(record)
         print(f"[EpochTracker] Logged: {version_id} | Score: {score:.4f} | Status: {status}")
+        logger.debug("[EpochTracker] Performance record: %s", record)
 
     # ------------------------------------------------------------------
     # Selection
@@ -307,4 +313,20 @@ def main():
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Epoch Tracker demo")
+    parser.add_argument(
+        "--debug", "-debug",
+        action="store_true",
+        help="Enable verbose debug logging",
+    )
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.WARNING,
+        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+
     main()

@@ -4,8 +4,11 @@
 import os
 import json
 import inspect
+import logging
 import subprocess
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 try:
     from openai import OpenAI
@@ -27,12 +30,15 @@ class BaseAgent:
         if client is None:
             print(f"[{self.name}] Simulation mode: No LLM client available.")
             return None
+        logger.debug("[%s] LLM prompt (%d chars):\n%s", self.name, len(prompt), prompt)
         response = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
         )
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        logger.debug("[%s] LLM response (%d chars):\n%s", self.name, len(content), content)
+        return content
 
 
 class ObserverAgent(BaseAgent):
@@ -62,6 +68,7 @@ class ObserverAgent(BaseAgent):
             return None
 
         print(f"[{self.name}] Analyzing logs...")
+        logger.debug("[%s] Log content (%d chars):\n%s", self.name, len(log_content), log_content)
         issue = {
             "type": "unknown",
             "log_excerpt": log_content[-500:],
@@ -122,6 +129,7 @@ FIXED CODE:"""
             if fixed_code.startswith("```"):
                 lines = fixed_code.split("\n")
                 fixed_code = "\n".join(lines[1:-1])
+        logger.debug("[%s] Generated patch (%d chars):\n%s", self.name, len(fixed_code) if fixed_code else 0, fixed_code or "")
         return fixed_code
 
 
@@ -202,6 +210,7 @@ OUTPUT FORMAT (valid JSON only, no markdown):
                 lines = response.split("\n")
                 response = "\n".join(lines[1:-1])
             result = json.loads(response)
+            logger.debug("[%s] Parsed feature plan: %s", self.name, result.get("plan", "N/A"))
             return result
         except json.JSONDecodeError as e:
             print(f"[{self.name}] Failed to parse LLM response as JSON: {e}")

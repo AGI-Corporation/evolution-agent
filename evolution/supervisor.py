@@ -3,11 +3,14 @@
 
 import os
 import json
+import logging
 import time
 from datetime import datetime
 from evolution.agents import ObserverAgent, ArchitectAgent, AuditorAgent, PlannerAgent
 from evolution.sandbox import Sandbox
 from evolution.version_control import GitManager
+
+logger = logging.getLogger(__name__)
 
 
 class Supervisor:
@@ -90,11 +93,13 @@ class Supervisor:
             return False
 
         print(f"[Supervisor] Bug detected: {issue['type']}")
+        logger.debug("[Supervisor] Bug-fix issue details:\n%s", json.dumps(issue, indent=2))
 
         source_code = self.read_source()
         if not source_code:
             print("[Supervisor] Cannot read source for bug fix.")
             return False
+        logger.debug("[Supervisor] Source code read (%d chars)", len(source_code))
 
         # Create a safety branch
         branch_name = self.git.create_evolution_branch(prefix="fix")
@@ -108,6 +113,7 @@ class Supervisor:
             if branch_name:
                 self.git.checkout_branch("main")
             return False
+        logger.debug("[Supervisor] Patch accepted (%d chars)", len(patch))
 
         # Apply patch
         success = self.sandbox.verify_and_apply(patch, self.target_file)
@@ -164,6 +170,7 @@ class Supervisor:
 
         requirement = queue.pop(0)
         print(f"[Supervisor] Processing feature: {requirement.get('name', 'unnamed')}")
+        logger.debug("[Supervisor] Feature requirement:\n%s", json.dumps(requirement, indent=2))
 
         # Load current files for context
         current_files = {}
@@ -171,6 +178,7 @@ class Supervisor:
             content = self.read_source(os.path.join(self.project_root, fname))
             if content:
                 current_files[fname] = content
+        logger.debug("[Supervisor] Context files loaded: %s", list(current_files.keys()))
 
         # Create a feature branch
         branch_name = self.git.create_evolution_branch(prefix="feature")
@@ -185,6 +193,11 @@ class Supervisor:
             return False
 
         print(f"[Supervisor] Feature plan: {feature_result.get('plan', 'N/A')}")
+        logger.debug(
+            "[Supervisor] Feature result files_to_update=%s new_files=%s",
+            list(feature_result.get("files_to_update", {}).keys()),
+            list(feature_result.get("new_files", {}).keys()),
+        )
 
         # Apply feature files
         success = self.sandbox.apply_feature_files(feature_result, self.project_root)
@@ -230,19 +243,42 @@ class Supervisor:
 
         while True:
             print(f"\n[{datetime.now().isoformat()}] === Running Evolution Cycle ===")
+            logger.debug("[Supervisor] Checking for bugs first, then features")
 
             # Priority 1: Fix bugs
             fixed = self.process_bug_fix()
             if not fixed:
+                logger.debug("[Supervisor] No bugs found. Checking feature queue...")
                 # Priority 2: Implement features
                 self.process_feature_request()
 
+            logger.debug("[Supervisor] Cycle complete. Sleeping %ds...", interval)
             print(f"[Supervisor] Sleeping {interval}s...")
             time.sleep(interval)
 
 
 if __name__ == "__main__":
-    import sys
-    root = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
-    supervisor = Supervisor(root)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Evolution Supervisor")
+    parser.add_argument(
+        "root",
+        nargs="?",
+        default=os.getcwd(),
+        help="Project root directory (default: current directory)",
+    )
+    parser.add_argument(
+        "--debug", "-debug",
+        action="store_true",
+        help="Enable verbose debug logging (shows LLM prompts, responses, and detailed step traces)",
+    )
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.WARNING,
+        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+
+    supervisor = Supervisor(args.root)
     supervisor.run()

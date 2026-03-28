@@ -60,6 +60,38 @@ evolution-agent/
 5. **Report** — EvolutionReporter generates performance analytics.
 6. **Repeat** — The loop continues, continuously improving the codebase.
 
+### Running the Supervisor
+
+```bash
+# Standard mode
+python -m evolution.supervisor
+
+# Verbose debug mode — shows LLM prompts/responses, step-by-step
+# event loop traces, git commands, and sandbox details
+python -m evolution.supervisor --debug
+# or
+python -m evolution.supervisor -debug
+```
+
+### Running the Engine
+
+```bash
+python -m evolution.engine
+python -m evolution.engine --debug
+```
+
+### Debug Output
+
+When `--debug` / `-debug` is enabled, the system logs:
+
+- Full LLM prompts sent to the model and their responses
+- Step-by-step trace of each evolution cycle phase (Observe → Architect → Audit → Apply)
+- Issue details as structured JSON
+- Source code and patch sizes
+- Git commands and their output
+- Sandbox subprocess output (py_compile, pytest)
+- EpochTracker agent registration and performance records
+
 ## Interoperability (NANDA Protocol)
 
 The system now supports the **NANDA Protocol**, allowing it to collaborate with external agents (like Max Health or CMMC compliance agents). By broadcasting mutation tasks, the Evolution Agent can leverage a distributed network for complex analysis.

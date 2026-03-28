@@ -5,6 +5,9 @@ import subprocess
 import tempfile
 import os
 import ast
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Sandbox:
@@ -36,6 +39,9 @@ class Sandbox:
             timeout=120,
         )
 
+        logger.debug("[Sandbox] pytest stdout:\n%s", result.stdout)
+        logger.debug("[Sandbox] pytest stderr:\n%s", result.stderr)
+
         if result.returncode == 0:
             print("[Sandbox] Tests Passed.")
             return True
@@ -62,6 +68,8 @@ class Sandbox:
         then overwrites the target file if safe.
         Returns True if successfully applied.
         """
+        logger.debug("[Sandbox] verify_and_apply: target=%s code_size=%d chars", target_file, len(new_code))
+
         # Step 1: Syntax check
         if not self.syntax_check(new_code):
             print("[Sandbox] Rejected: Syntax error. Target file NOT modified.")
@@ -75,6 +83,7 @@ class Sandbox:
             ) as tmp:
                 tmp.write(new_code)
                 tmp_path = tmp.name
+            logger.debug("[Sandbox] Wrote temp file: %s", tmp_path)
 
             # Step 3: Try executing the temp file to check for runtime errors
             result = subprocess.run(
@@ -84,6 +93,8 @@ class Sandbox:
                 text=True,
                 timeout=30,
             )
+            logger.debug("[Sandbox] py_compile stdout: %s", result.stdout)
+            logger.debug("[Sandbox] py_compile stderr: %s", result.stderr)
 
             if result.returncode != 0:
                 print(f"[Sandbox] Compile check failed: {result.stderr}")

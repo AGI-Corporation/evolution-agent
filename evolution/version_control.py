@@ -3,7 +3,10 @@
 
 import subprocess
 import os
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class GitManager:
@@ -21,6 +24,7 @@ class GitManager:
         Execute a git command in the repo directory.
         Returns (success: bool, output: str)
         """
+        logger.debug("[Git] Running: git %s", " ".join(command))
         try:
             result = subprocess.run(
                 ["git"] + command,
@@ -30,8 +34,10 @@ class GitManager:
                 check=True,
                 timeout=60,
             )
+            logger.debug("[Git] Output: %s", result.stdout.strip())
             return True, result.stdout.strip()
         except subprocess.CalledProcessError as e:
+            logger.debug("[Git] Error: %s", e.stderr.strip())
             return False, e.stderr.strip()
         except subprocess.TimeoutExpired:
             return False, "Git command timed out."
