@@ -9,7 +9,11 @@ from datetime import datetime
 
 try:
     from openai import OpenAI
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    except Exception:
+        client = None
+        print("Warning: OPENAI_API_KEY not set. Running in simulation mode.")
 except ImportError:
     client = None
     print("Warning: OpenAI client not installed. Running in simulation mode.")
