@@ -38,8 +38,11 @@ def _load_registry() -> Dict[str, Dict[str, Any]]:
             with open(_REGISTRY_PATH, "r") as fh:
                 data = json.load(fh)
             registry.update(data)
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "Could not load skills registry from %s: %s", _REGISTRY_PATH, exc
+            )
     return registry
 
 

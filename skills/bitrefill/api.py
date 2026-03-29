@@ -18,7 +18,12 @@ BITREFILL_API_BASE = "https://api.bitrefill.com/v1"
 class BitrefillAPIError(Exception):
     """Raised when the Bitrefill API returns an error or a network failure occurs."""
 
-    def __init__(self, message: str, status_code: int = None, response: dict = None):
+    def __init__(
+        self,
+        message: str,
+        status_code: Optional[int] = None,
+        response: Optional[dict] = None,
+    ):
         super().__init__(message)
         self.status_code = status_code
         self.response = response or {}
@@ -69,7 +74,7 @@ class BitrefillClient:
             body: dict = {}
             try:
                 body = exc.response.json()
-            except Exception:
+            except (ValueError, KeyError):
                 pass
             raise BitrefillAPIError(
                 f"Bitrefill API error {exc.response.status_code}: "

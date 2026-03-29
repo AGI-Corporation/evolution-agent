@@ -260,7 +260,11 @@ class Supervisor:
             The instantiated skill agent, or ``None`` on failure.
         """
         if not _SKILLS_AVAILABLE:
-            print("[Supervisor] Skills system is not available. Install the skills package.")
+            print(
+                "[Supervisor] Skills system is not available. "
+                "Ensure the skills/ package is present in your Python path "
+                "and dependencies are installed (pip install -r requirements.txt)."
+            )
             return None
         if skill_id in self._skill_agents:
             return self._skill_agents[skill_id]
