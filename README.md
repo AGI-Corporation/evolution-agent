@@ -73,6 +73,89 @@ The system now supports the **NANDA Protocol**, allowing it to collaborate with 
 - **Rollback** — Failed evolutions trigger `git reset --hard HEAD~1` automatically.
 - **Memory Bank** — `memory.json` logs all successful evolutions for future reference.
 
+## Skills System
+
+The Evolution Agent supports a pluggable **skills** architecture that lets you extend the supervisor with external capabilities.
+
+### Adding a skill
+
+```bash
+# Via npx (requires Node.js ≥ 14)
+npx skills add bitrefill/agents
+
+# Or directly via Python
+python -m skills add bitrefill/agents
+```
+
+### Available built-in skills
+
+| Skill ID | Description |
+|---|---|
+| `bitrefill/agents` | Trade on Bitrefill – search gift cards & mobile top-ups, place orders, and track payments using Bitcoin and other cryptocurrencies. |
+
+### Listing installed skills
+
+```bash
+python -m skills list
+```
+
+### Using the Bitrefill Trading Agent
+
+Set your credentials:
+
+```bash
+export BITREFILL_API_KEY="your-api-key"
+export BITREFILL_API_SECRET="your-api-secret"   # optional
+```
+
+Add a skill task to the feature queue (`evolution/feature_queue.json`):
+
+```json
+[
+  {
+    "type": "skill",
+    "skill_id": "bitrefill/agents",
+    "name": "Search Amazon gift cards",
+    "context": {
+      "action": "search",
+      "query": "amazon",
+      "country": "US"
+    }
+  }
+]
+```
+
+The supervisor picks it up on the next cycle and dispatches it to `BitrefillTradingAgent`.
+
+#### Supported actions
+
+| action | Required context keys | Description |
+|---|---|---|
+| `search` | `query`, `country` (opt) | Search the Bitrefill catalog |
+| `buy` | `product_id`, `value`, `payment_method` (opt), `currency` (opt), `email` (opt), `phone` (opt) | Place a Bitrefill order |
+| `status` | `order_id` | Get order status |
+| `list_orders` | `limit` (opt), `skip` (opt) | List past orders |
+| `balance` | — | Get account balance |
+
+#### Programmatic usage
+
+```python
+from skills.bitrefill import BitrefillTradingAgent
+
+agent = BitrefillTradingAgent()
+
+# Search
+products = agent.search("netflix", country="US")
+
+# Buy (returns order dict with payment instructions)
+order = agent.buy("netflix-us", value=15.0, payment_method="lightning")
+
+# Track
+status = agent.get_order_status(order["id"])
+```
+
+---
+
 ## Based On
 
 - [AGI-Corporation/ralph](https://github.com/AGI-Corporation/ralph) — The base operational codebase (Body)

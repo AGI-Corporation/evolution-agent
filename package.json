@@ -1,0 +1,27 @@
+{
+  "name": "evolution-agent-skills",
+  "version": "1.0.0",
+  "description": "Skills manager CLI for the Evolution Agent – add Bitrefill trading and other agent capabilities.",
+  "bin": {
+    "skills": "./bin/skills.js"
+  },
+  "scripts": {
+    "skills": "node ./bin/skills.js"
+  },
+  "keywords": [
+    "evolution-agent",
+    "skills",
+    "bitrefill",
+    "ai-agents",
+    "bitcoin",
+    "trading"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AGI-Corporation/evolution-agent"
+  }
+}

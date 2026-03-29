@@ -1,6 +1,7 @@
 # evolution/supervisor.py
 # Orchestrates all agents: bug fixing, feature planning, git integration
 
+import logging
 import os
 import json
 import time
@@ -8,6 +9,16 @@ from datetime import datetime
 from evolution.agents import ObserverAgent, ArchitectAgent, AuditorAgent, PlannerAgent
 from evolution.sandbox import Sandbox
 from evolution.version_control import GitManager
+
+logger = logging.getLogger(__name__)
+
+# Attempt to load the skills registry; gracefully degrade if unavailable.
+try:
+    from skills import registry as _skills_registry
+    _SKILLS_AVAILABLE = True
+except ImportError:
+    _skills_registry = None  # type: ignore
+    _SKILLS_AVAILABLE = False
 
 
 class Supervisor:
@@ -18,7 +29,18 @@ class Supervisor:
     Loop:
     1. Check for bugs (system.log) -> run bug fix cycle
     2. Check for feature requests (feature_queue.json) -> run feature cycle
-    3. Sleep and repeat
+    3. Dispatch skill-agent tasks (e.g. Bitrefill trading) if queued
+    4. Sleep and repeat
+
+    Skill agents can be loaded via :meth:`load_skill` and dispatched by adding
+    an entry to the feature queue with ``"type": "skill"``::
+
+        {
+            "type": "skill",
+            "skill_id": "bitrefill/agents",
+            "name": "Bitrefill search",
+            "context": {"action": "search", "query": "amazon", "country": "US"}
+        }
     """
 
     def __init__(self, project_root):
@@ -28,13 +50,16 @@ class Supervisor:
         self.memory_path = os.path.join(project_root, "evolution", "memory.json")
         self.target_file = os.path.join(project_root, "main_app.py")
 
-        # Initialize components
+        # Initialize core components
         self.observer = ObserverAgent()
         self.architect = ArchitectAgent()
         self.planner = PlannerAgent()
         self.auditor = AuditorAgent()
         self.sandbox = Sandbox(project_root)
         self.git = GitManager(project_root)
+
+        # Loaded skill agent instances keyed by skill_id
+        self._skill_agents: dict = {}
 
         self._init_files()
 
@@ -219,9 +244,79 @@ class Supervisor:
         self.save_feature_queue(queue)
         return False
 
+    # ------------------------------------------------------------------
+    # Skill agent support
+    # ------------------------------------------------------------------
+
+    def load_skill(self, skill_id: str, **kwargs):
+        """
+        Load and cache a skill agent by its registry ID.
+
+        Args:
+            skill_id: Skill identifier (e.g. ``"bitrefill/agents"``).
+            **kwargs: Forwarded to the skill agent constructor.
+
+        Returns:
+            The instantiated skill agent, or ``None`` on failure.
+        """
+        if not _SKILLS_AVAILABLE:
+            print("[Supervisor] Skills system is not available. Install the skills package.")
+            return None
+        if skill_id in self._skill_agents:
+            return self._skill_agents[skill_id]
+        try:
+            agent = _skills_registry.load_skill_agent(skill_id, **kwargs)
+            self._skill_agents[skill_id] = agent
+            print(f"[Supervisor] Skill loaded: {skill_id}")
+            return agent
+        except (KeyError, ImportError, Exception) as exc:
+            print(f"[Supervisor] Failed to load skill '{skill_id}': {exc}")
+            return None
+
+    def process_skill_task(self, task: dict) -> bool:
+        """
+        Dispatch a skill-agent task from the feature queue.
+
+        The task dict must contain:
+            ``skill_id`` – registered skill identifier
+            ``context``  – dict forwarded to the skill agent's ``act()`` method
+            ``name``     – human-readable task name (for logging / memory)
+
+        Returns ``True`` if the task was handled successfully.
+        """
+        skill_id = task.get("skill_id")
+        context = task.get("context", {})
+        name = task.get("name", skill_id)
+
+        if not skill_id:
+            print("[Supervisor] Skill task missing 'skill_id'. Skipping.")
+            return False
+
+        print(f"[Supervisor] Dispatching skill task: {name} ({skill_id})")
+        agent = self.load_skill(skill_id)
+        if agent is None:
+            return False
+
+        result = agent.act(context)
+        success = result.get("success", False)
+        self.save_memory({
+            "type": "skill_task",
+            "timestamp": datetime.now().isoformat(),
+            "skill_id": skill_id,
+            "name": name,
+            "action": result.get("action"),
+            "status": "success" if success else "failed",
+            "error": result.get("error"),
+        })
+        if success:
+            print(f"[Supervisor] Skill task succeeded: {name}")
+        else:
+            print(f"[Supervisor] Skill task failed: {name} – {result.get('error')}")
+        return success
+
     def run(self, interval=30):
         """
-        Main loop: continuously check for bugs and features.
+        Main loop: continuously check for bugs, features, and skill tasks.
         interval: seconds between cycles
         """
         print("[Supervisor] Evolution Supervisor started.")
@@ -234,8 +329,17 @@ class Supervisor:
             # Priority 1: Fix bugs
             fixed = self.process_bug_fix()
             if not fixed:
-                # Priority 2: Implement features
-                self.process_feature_request()
+                # Priority 2: Implement features or dispatch skill tasks
+                queue = self.load_feature_queue()
+                if queue:
+                    next_item = queue[0]
+                    if next_item.get("type") == "skill":
+                        # Remove from queue and dispatch to skill agent
+                        queue.pop(0)
+                        self.save_feature_queue(queue)
+                        self.process_skill_task(next_item)
+                    else:
+                        self.process_feature_request()
 
             print(f"[Supervisor] Sleeping {interval}s...")
             time.sleep(interval)
