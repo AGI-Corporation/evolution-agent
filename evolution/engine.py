@@ -45,6 +45,7 @@ class EvolutionEngine:
                     "fix_preview": patch_preview[:200] + "..." if len(patch_preview) > 200 else patch_preview,
                 })
                 f.seek(0)
+                f.truncate()
                 json.dump(data, f, indent=4)
         except Exception as e:
             print(f"[Engine] Failed to save memory: {e}")

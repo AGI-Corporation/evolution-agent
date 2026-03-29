@@ -6,7 +6,7 @@
 import logging
 import asyncio
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Attempt to import NANDA SDK protocol components
 try:
@@ -30,7 +30,7 @@ except ImportError:
         def register_node(self, node_id, capabilities, endpoint):
             self.nodes[node_id] = {"id": node_id, "capabilities": capabilities, "status": "online"}
         async def submit_task(self, task_type, payload):
-            return f"task_{datetime.utcnow().timestamp()}"
+            return f"task_{datetime.now(timezone.utc).timestamp()}"
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class NANDABridge:
             payload={
                 "origin_node": self.node_id,
                 "context": mutation_context,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
         )
         logger.info(f"[NANDA] Broadcasted mutation task: {task_id}")

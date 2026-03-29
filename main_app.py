@@ -4,6 +4,7 @@
 
 import time
 import os
+import traceback
 
 
 def calculate_division(a, b):
@@ -43,7 +44,6 @@ def main():
             # Fallback logging if system encounters an error
             os.makedirs("logs", exist_ok=True)
             with open("logs/system.log", "a") as f:
-                import traceback
                 f.write(f"CRITICAL ERROR: {e}\n")
                 f.write(traceback.format_exc())
             print(f"[main_app] Error logged: {e}")

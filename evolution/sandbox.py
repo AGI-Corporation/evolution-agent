@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import os
 import ast
+import py_compile
 
 
 class Sandbox:
@@ -76,17 +77,11 @@ class Sandbox:
                 tmp.write(new_code)
                 tmp_path = tmp.name
 
-            # Step 3: Try executing the temp file to check for runtime errors
-            result = subprocess.run(
-                ["python", "-c", f"import py_compile; py_compile.compile('{tmp_path}', doraise=True)"],
-                cwd=self.project_root,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-
-            if result.returncode != 0:
-                print(f"[Sandbox] Compile check failed: {result.stderr}")
+            # Step 3: Compile the temp file to check for errors beyond basic syntax
+            try:
+                py_compile.compile(tmp_path, doraise=True)
+            except py_compile.PyCompileError as compile_err:
+                print(f"[Sandbox] Compile check failed: {compile_err}")
                 return False
 
             # Step 4: Overwrite target file

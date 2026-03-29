@@ -44,7 +44,8 @@ class Supervisor:
         os.makedirs(os.path.join(self.project_root, "evolution"), exist_ok=True)
 
         if not os.path.exists(self.log_path):
-            open(self.log_path, "w").close()
+            with open(self.log_path, "w") as f:
+                pass
 
         if not os.path.exists(self.queue_path):
             with open(self.queue_path, "w") as f:
@@ -70,6 +71,7 @@ class Supervisor:
                 data = json.load(f)
                 data.append(entry)
                 f.seek(0)
+                f.truncate()
                 json.dump(data, f, indent=4)
         except Exception as e:
             print(f"[Supervisor] Memory save error: {e}")

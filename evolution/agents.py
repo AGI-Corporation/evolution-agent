@@ -78,10 +78,12 @@ class ObserverAgent(BaseAgent):
                 issue["type"] = keyword
                 break
 
-        if issue["type"] == "unknown" and log_content.strip():
+        # At this point log_content is non-empty (empty was handled above).
+        # If no known error keyword matched, classify as a generic anomaly.
+        if issue["type"] == "unknown":
             issue["type"] = "anomaly"
 
-        return issue if issue["type"] != "unknown" else None
+        return issue
 
 
 class ArchitectAgent(BaseAgent):
