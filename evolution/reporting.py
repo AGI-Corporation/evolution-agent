@@ -24,6 +24,71 @@ class EvolutionReporter:
         
         os.makedirs(self.reports_dir, exist_ok=True)
 
+    def generate_mutation_trend_report(self) -> Dict[str, Any]:
+        """
+        Analyze fitness trends across all logged epochs to show whether
+        the population is improving, plateauing, or regressing over time.
+        """
+        try:
+            if not os.path.exists(self.epoch_log_path):
+                return {"error": "Epoch log not found. Run at least one epoch first."}
+
+            with open(self.epoch_log_path, "r") as f:
+                data = json.load(f)
+
+            history = data.get("history", [])
+            if not history:
+                return {"error": "No history entries found in epoch log."}
+
+            # Group fitness scores by epoch
+            epochs: Dict[int, List[float]] = {}
+            for record in history:
+                epoch = record.get("epoch")
+                score = record.get("fitness_score", 0.0)
+                if epoch is not None:
+                    epochs.setdefault(epoch, []).append(score)
+
+            trend = []
+            prev_avg = None
+            for epoch_id in sorted(epochs.keys()):
+                scores = epochs[epoch_id]
+                avg = sum(scores) / len(scores)
+                peak = max(scores)
+                direction = "→"
+                if prev_avg is not None:
+                    direction = "↑" if avg > prev_avg else ("↓" if avg < prev_avg else "→")
+                trend.append({
+                    "epoch": epoch_id,
+                    "agents_evaluated": len(scores),
+                    "average_fitness": round(avg, 4),
+                    "peak_fitness": round(peak, 4),
+                    "trend": direction,
+                })
+                prev_avg = avg
+
+            overall_direction = "flat"
+            if len(trend) >= 2:
+                first_avg = trend[0]["average_fitness"]
+                last_avg = trend[-1]["average_fitness"]
+                if last_avg > first_avg + 0.01:
+                    overall_direction = "improving"
+                elif last_avg < first_avg - 0.01:
+                    overall_direction = "regressing"
+
+            report = {
+                "timestamp": datetime.now().isoformat(),
+                "total_epochs_analyzed": len(trend),
+                "overall_direction": overall_direction,
+                "epoch_trend": trend,
+            }
+
+            self._save_report("mutation_trend_report.json", report)
+            return report
+
+        except Exception as e:
+            logger.error(f"Error generating mutation trend report: {e}")
+            return {"error": str(e)}
+
     def generate_epoch_report(self, epoch_id: int) -> Dict[str, Any]:
         """Generate a detailed report for a specific epoch."""
         try:

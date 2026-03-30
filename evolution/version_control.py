@@ -13,8 +13,20 @@ class GitManager:
     permanent, auditable, and reversible.
     """
 
-    def __init__(self, repo_path):
+    def __init__(self, repo_path, default_branch=None):
         self.repo_path = repo_path
+        # Auto-detect the default branch (main / master / custom) if not given
+        self._default_branch = default_branch or self._detect_default_branch()
+
+    def _detect_default_branch(self):
+        """Detect the repo's default branch (main, master, or current HEAD)."""
+        for candidate in ("main", "master"):
+            ok, _ = self._run_git(["rev-parse", "--verify", candidate])
+            if ok:
+                return candidate
+        # Fall back to whatever branch is currently checked out
+        _, current = self._run_git(["rev-parse", "--abbrev-ref", "HEAD"])
+        return current or "main"
 
     def _run_git(self, command):
         """
@@ -93,10 +105,11 @@ class GitManager:
 
     def merge_to_main(self, branch_name):
         """
-        Merge a fix/feature branch back to main after successful evolution.
+        Merge a fix/feature branch back to the default branch after successful evolution.
         """
-        print(f"[Git] Merging {branch_name} into main...")
-        self.checkout_branch("main")
+        target = self._default_branch
+        print(f"[Git] Merging {branch_name} into {target}...")
+        self.checkout_branch(target)
         success, msg = self._run_git(["merge", branch_name, "--no-ff", "-m", f"Merge evolution branch: {branch_name}"])
         if success:
             print(f"[Git] Merge successful.")

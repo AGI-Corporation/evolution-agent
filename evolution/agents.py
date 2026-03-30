@@ -9,10 +9,28 @@ from datetime import datetime
 
 try:
     from openai import OpenAI
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    _OPENAI_AVAILABLE = True
 except ImportError:
-    client = None
+    _OPENAI_AVAILABLE = False
     print("Warning: OpenAI client not installed. Running in simulation mode.")
+
+# Lazy singleton – created on first LLM call so that importing agents.py
+# without a key set (e.g. in unit tests) does not raise an error.
+_client = None
+
+
+def _get_client():
+    """Return the shared OpenAI client, initialising it on first use."""
+    global _client
+    if _client is None:
+        if not _OPENAI_AVAILABLE:
+            return None
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            print("Warning: OPENAI_API_KEY not set. Running in simulation mode.")
+            return None
+        _client = OpenAI(api_key=api_key)
+    return _client
 
 
 class BaseAgent:
@@ -24,6 +42,7 @@ class BaseAgent:
 
     def _call_llm(self, prompt, model="gpt-4o"):
         """Call the LLM with a prompt and return the response."""
+        client = _get_client()
         if client is None:
             print(f"[{self.name}] Simulation mode: No LLM client available.")
             return None

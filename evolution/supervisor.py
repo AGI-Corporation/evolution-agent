@@ -8,6 +8,8 @@ from datetime import datetime
 from evolution.agents import ObserverAgent, ArchitectAgent, AuditorAgent, PlannerAgent
 from evolution.sandbox import Sandbox
 from evolution.version_control import GitManager
+from evolution.epoch_tracker import EpochTracker
+from evolution.reporting import EvolutionReporter
 
 
 class Supervisor:
@@ -20,6 +22,9 @@ class Supervisor:
     2. Check for feature requests (feature_queue.json) -> run feature cycle
     3. Sleep and repeat
     """
+
+    # Python source files to include as context for the Planner
+    CONTEXT_GLOB = "*.py"
 
     def __init__(self, project_root):
         self.project_root = project_root
@@ -35,6 +40,8 @@ class Supervisor:
         self.auditor = AuditorAgent()
         self.sandbox = Sandbox(project_root)
         self.git = GitManager(project_root)
+        self.epoch_tracker = EpochTracker(project_root)
+        self.reporter = EvolutionReporter(project_root)
 
         self._init_files()
 
@@ -62,6 +69,30 @@ class Supervisor:
                 return f.read()
         except FileNotFoundError:
             return None
+
+    def _load_project_files(self):
+        """
+        Load all top-level and evolution/ Python source files to give the
+        Planner full context instead of only main_app.py.
+        """
+        current_files = {}
+        search_dirs = [
+            self.project_root,
+            os.path.join(self.project_root, "evolution"),
+        ]
+        for directory in search_dirs:
+            if not os.path.isdir(directory):
+                continue
+            for fname in sorted(os.listdir(directory)):
+                if not fname.endswith(".py"):
+                    continue
+                rel_path = os.path.relpath(
+                    os.path.join(directory, fname), self.project_root
+                )
+                content = self.read_source(os.path.join(directory, fname))
+                if content is not None:
+                    current_files[rel_path] = content
+        return current_files
 
     def save_memory(self, entry):
         """Append an entry to memory.json."""
@@ -96,6 +127,12 @@ class Supervisor:
             print("[Supervisor] Cannot read source for bug fix.")
             return False
 
+        # Register this fix attempt with the epoch tracker
+        agent_ver = self.epoch_tracker.register_agent(
+            parent_id=None,
+            mutation_params={"type": "bug_fix", "issue": issue["type"]},
+        )
+
         # Create a safety branch
         branch_name = self.git.create_evolution_branch(prefix="fix")
         if not branch_name:
@@ -105,8 +142,9 @@ class Supervisor:
         patch = self.architect.act(issue, source_code)
         if not patch or not self.auditor.act(patch):
             print("[Supervisor] Bug fix patch rejected.")
+            self.epoch_tracker.log_performance(agent_ver.version_id, 0.0, status="failed")
             if branch_name:
-                self.git.checkout_branch("main")
+                self.git.checkout_branch(self.git._default_branch)
             return False
 
         # Apply patch
@@ -119,6 +157,7 @@ class Supervisor:
                 if branch_name:
                     self.git.commit_changes(f"fix: Auto-fix {issue['type']} - {datetime.now().isoformat()}")
                     self.git.merge_to_main(branch_name)
+                self.epoch_tracker.log_performance(agent_ver.version_id, 1.0, status="tested")
                 self.save_memory({
                     "type": "bug_fix",
                     "timestamp": datetime.now().isoformat(),
@@ -130,14 +169,16 @@ class Supervisor:
                 return True
             else:
                 print("[Supervisor] Tests failed after patch. Rolling back.")
+                self.epoch_tracker.log_performance(agent_ver.version_id, 0.2, status="failed")
                 if branch_name:
                     self.git.rollback()
-                    self.git.checkout_branch("main")
+                    self.git.checkout_branch(self.git._default_branch)
                 return False
         else:
             print("[Supervisor] Patch could not be applied.")
+            self.epoch_tracker.log_performance(agent_ver.version_id, 0.0, status="failed")
             if branch_name:
-                self.git.checkout_branch("main")
+                self.git.checkout_branch(self.git._default_branch)
             return False
 
     def load_feature_queue(self):
@@ -165,12 +206,14 @@ class Supervisor:
         requirement = queue.pop(0)
         print(f"[Supervisor] Processing feature: {requirement.get('name', 'unnamed')}")
 
-        # Load current files for context
-        current_files = {}
-        for fname in ["main_app.py"]:
-            content = self.read_source(os.path.join(self.project_root, fname))
-            if content:
-                current_files[fname] = content
+        # Load all project Python files for richer context
+        current_files = self._load_project_files()
+
+        # Register this feature attempt with the epoch tracker
+        agent_ver = self.epoch_tracker.register_agent(
+            parent_id=None,
+            mutation_params={"type": "feature", "name": requirement.get("name")},
+        )
 
         # Create a feature branch
         branch_name = self.git.create_evolution_branch(prefix="feature")
@@ -179,9 +222,10 @@ class Supervisor:
         feature_result = self.planner.implement_feature(requirement, current_files)
         if not feature_result:
             print("[Supervisor] Planner failed to generate feature code.")
+            self.epoch_tracker.log_performance(agent_ver.version_id, 0.0, status="failed")
             self.save_feature_queue(queue)  # Remove from queue anyway
             if branch_name:
-                self.git.checkout_branch("main")
+                self.git.checkout_branch(self.git._default_branch)
             return False
 
         print(f"[Supervisor] Feature plan: {feature_result.get('plan', 'N/A')}")
@@ -194,6 +238,7 @@ class Supervisor:
                 if branch_name:
                     self.git.commit_changes(f"feat: {requirement.get('name', 'new-feature')} - {datetime.now().isoformat()}")
                     self.git.merge_to_main(branch_name)
+                self.epoch_tracker.log_performance(agent_ver.version_id, 1.0, status="tested")
                 self.save_memory({
                     "type": "feature",
                     "timestamp": datetime.now().isoformat(),
@@ -206,13 +251,15 @@ class Supervisor:
                 return True
             else:
                 print("[Supervisor] Tests failed after feature. Rolling back.")
+                self.epoch_tracker.log_performance(agent_ver.version_id, 0.2, status="failed")
                 if branch_name:
                     self.git.rollback()
-                    self.git.checkout_branch("main")
+                    self.git.checkout_branch(self.git._default_branch)
         else:
             print("[Supervisor] Feature files could not be applied.")
+            self.epoch_tracker.log_performance(agent_ver.version_id, 0.0, status="failed")
             if branch_name:
-                self.git.checkout_branch("main")
+                self.git.checkout_branch(self.git._default_branch)
 
         # Re-add the failed feature to queue front for retry
         queue.insert(0, requirement)
@@ -227,15 +274,24 @@ class Supervisor:
         print("[Supervisor] Evolution Supervisor started.")
         print(f"[Supervisor] Project root: {self.project_root}")
         print(f"[Supervisor] Cycle interval: {interval}s")
+        print(f"[Supervisor] Default git branch: {self.git._default_branch}")
 
         while True:
             print(f"\n[{datetime.now().isoformat()}] === Running Evolution Cycle ===")
+
+            # Start a new epoch for this cycle
+            self.epoch_tracker.start_epoch()
 
             # Priority 1: Fix bugs
             fixed = self.process_bug_fix()
             if not fixed:
                 # Priority 2: Implement features
                 self.process_feature_request()
+
+            # Checkpoint epoch and generate a summary report
+            self.epoch_tracker.save_checkpoint()
+            self.epoch_tracker.print_leaderboard()
+            self.reporter.generate_system_summary()
 
             print(f"[Supervisor] Sleeping {interval}s...")
             time.sleep(interval)
@@ -246,3 +302,4 @@ if __name__ == "__main__":
     root = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
     supervisor = Supervisor(root)
     supervisor.run()
+

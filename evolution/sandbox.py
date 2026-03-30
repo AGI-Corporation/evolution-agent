@@ -127,7 +127,9 @@ class Sandbox:
         # Create new files
         for filename, code in feature_result.get("new_files", {}).items():
             target = os.path.join(project_root, filename)
-            os.makedirs(os.path.dirname(target), exist_ok=True)
+            target_dir = os.path.dirname(target)
+            if target_dir:
+                os.makedirs(target_dir, exist_ok=True)
             if not self.syntax_check(code):
                 print(f"[Sandbox] Skipping new file {filename} due to syntax error.")
                 all_success = False
