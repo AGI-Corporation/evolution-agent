@@ -91,13 +91,19 @@ class ArchitectAgent(BaseAgent):
     """
     def __init__(self):
         super().__init__("Architect")
+        self._context_bridge = RuntimeContextBridge()
 
     def act(self, issue, source_code):
         """
         Generate a code patch to fix the detected issue.
+        Uses RuntimeContextBridge to enrich the LLM prompt with live runtime context.
         Returns the patched code as a string.
         """
         print(f"[{self.name}] Generating fix for issue: {issue['type']}")
+
+        # Gather runtime context to give the LLM a richer mental model
+        runtime_ctx = self._context_bridge.execute(scope_name="main", depth=2)
+        runtime_ctx_str = json.dumps(runtime_ctx, indent=2, default=str)
 
         prompt = f"""You are a Senior Python Developer. Your task is to fix a bug in the code below.
 
@@ -105,6 +111,9 @@ CURRENT SOURCE CODE:
 ```python
 {source_code}
 ```
+
+RUNTIME CONTEXT (current execution state):
+{runtime_ctx_str}
 
 ERROR DETECTED:
 {issue['log_excerpt']}

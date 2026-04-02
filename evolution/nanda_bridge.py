@@ -3,9 +3,9 @@
 # Provides a bridge between local evolution cycles and the distributed NANDA agent network.
 # See: https://github.com/AGI-Corporation/nanda-sdk
 
-import logging
 import asyncio
-from typing import Dict, Any, List, Optional
+import logging
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 # Attempt to import NANDA SDK protocol components
@@ -68,6 +68,31 @@ class NANDABridge:
         )
         logger.info(f"[NANDA] Broadcasted mutation task: {task_id}")
         return task_id
+
+    def broadcast_mutation_sync(self, mutation_context: Dict[str, Any]) -> Optional[str]:
+        """
+        Synchronous wrapper around broadcast_mutation_task for use in non-async callers
+        (e.g. Supervisor's synchronous run loop).
+
+        Returns the task_id on success, or None if broadcast fails.
+        """
+        try:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop and loop.is_running():
+                # Schedule as a fire-and-forget coroutine inside an already-running loop
+                future = asyncio.ensure_future(self.broadcast_mutation_task(mutation_context))
+                logger.info("[NANDA] Scheduled async mutation broadcast on existing event loop.")
+                return None  # task_id unavailable without awaiting
+            else:
+                task_id = asyncio.run(self.broadcast_mutation_task(mutation_context))
+                return task_id
+        except Exception as exc:
+            logger.warning(f"[NANDA] Broadcast failed (non-fatal): {exc}")
+            return None
 
     def process_external_request(self, task: Any) -> Dict[str, Any]:
         """
