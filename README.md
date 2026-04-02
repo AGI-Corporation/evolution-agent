@@ -1,136 +1,106 @@
-# Evolution Agent
+# 🧬 Evolution Agent: The Self-Actualizing Codebase
 
-A **Self-Coding / Self-Evolving System** built on the [AGI-Corporation/ralph](https://github.com/AGI-Corporation/ralph) repository. This system uses a multi-agent loop to autonomously monitor, repair, and grow its own codebase — without human intervention.
+> "The first step toward true AGI is a system that can reason about, repair, and expand its own architecture."
 
-Inspired by the [interplaynetary/playtime](https://github.com/interplaynetary/playtime) Agent-Native Development Environment concept, which bridges the gap between runtime state and code generation via a `runtime_context_bridge` tool.
+Evolution Agent is a **Self-Coding / Self-Evolving meta-framework** built upon the [AGI-Corporation/ralph](https://github.com/AGI-Corporation/ralph) operative core. It transforms a static repository into a living organism that autonomously monitors its own health, patches vulnerabilities, and implements new features through a high-fidelity multi-agent feedback loop.
 
 ---
 
-## Architecture: "The Ralph Hive"
+## 🐝 Architecture: "The Ralph Hive"
 
-Three specialized agents operate in a continuous loop:
+The system operates as a decentralized hive of specialized agents, each fine-tuned for a specific stage of the developmental lifecycle.
 
-| Agent | Role | Responsibility |
-|---|---|---|
-| **Observer** | The Senses | Monitors logs, detects errors and anomalies |
-| **Architect** | The Brain | Reads source code, generates fix patches via LLM |
-| **Auditor** | The Immune System | Validates patches, runs tests in sandbox |
-| **Planner** | The Growth Engine | Implements new features from the feature queue |
+| Agent | Metaphor | Primary Mission |
+| :--- | :--- | :--- |
+| **Observer** | 👁️ The Senses | Scans `logs/system.log` and metrics to detect anomalies or "evolutionary opportunities." |
+| **Architect** | 🧠 The Brain | Analyzes source code and context to design high-level patches and feature implementations. |
+| **Auditor** | 🛡️ The Immune System | Validates logic, checks syntax, and enforces security guardrails before any code is applied. |
+| **Planner** | 🚀 The Growth Engine | Deconstructs `feature_queue.json` into actionable development sprints for the hive. |
 
-A **Supervisor** orchestrates all agents, supported by a **GitManager** for version control and a **NANDABridge** for distributed interoperability.
+A **Supervisor** orchestrates the global loop, managing state persistence via **GitManager** and cross-agent telemetry through the **NANDABridge**.
 
-## Core Evolution Components
+---
 
-- **Epoch Tracker** (`evolution/epoch_tracker.py`): Tracks agent lifecycle, fitness scores, and "Hall of Fame" across evolution epochs.
-- **Evolution Reporter** (`evolution/reporting.py`): Provides extensive analytics on mutations, success rates, and lineage performance.
-- **NANDA Bridge** (`evolution/nanda_bridge.py`): Integrates with the [NANDA Protocol](https://github.com/AGI-Corporation/nanda-sdk) for distributed analysis and cross-agent communication.
+## 🧬 Core Evolution Components
 
-## Project Structure
+- **Epoch Tracker** (`evolution/epoch_tracker.py`): The system's "DNA ledger." It versions every mutation, calculates fitness scores (Success Rate × Efficiency), and maintains the "Hall of Fame" of superior agent configurations.
+- **Evolution Reporter** (`evolution/reporting.py`): Generates vivid, data-driven analytics on mutation lineages, heatmaps of code changes, and performance deltas across generations.
+- **NANDA Bridge** (`evolution/nanda_bridge.py`): Standardizes interoperability using the [NANDA Protocol](https://github.com/AGI-Corporation/nanda-sdk), allowing the hive to collaborate with external agents (e.g., specialized medical or security agents).
+
+---
+
+## 🎙️ Voice Coding Agent (The "No-Keyboard" Interface)
+
+Step into the future of development with a voice-native interface that bridges human intent and machine execution.
+
+### ✨ Vivid Workflow Example
+1. **Initiate:** You press `Enter`.
+2. **Speak:** "Add an async health-check endpoint to the main app that returns the current epoch from the tracker."
+3. **Reason:** The system uses **Whisper STT** to transcribe your voice, and **GPT-4o** to architect the code.
+4. **Listen:** The agent explains its plan aloud via **OpenAI TTS**: *"I am adding a `/health` route to main_app.py that queries the EpochTracker for the latest state."*
+5. **Execute:** The code is generated, displayed, and saved to your project.
+
+---
+
+## 🛠️ How It Works: The Continuous Loop
+
+```mermaid
+graph TD
+    A[Observer: Detects Error/Goal] --> B[Architect: Designs Solution]
+    B --> C[Auditor: Validates & Tests]
+    C -- Pass --> D[GitManager: Commits & Branches]
+    C -- Fail --> B
+    D --> E[EpochTracker: Logs Fitness]
+    E --> F[EvolutionReporter: Analytics]
+    F --> A
+```
+
+---
+
+## 📂 Project Anatomy
 
 ```text
 evolution-agent/
-├── evolution/           # Core self-evolution module
-│   ├── __init__.py
-│   ├── agents.py        # Observer, Architect, Auditor, Planner agents
-│   ├── engine.py        # Main loop controller
-│   ├── epoch_tracker.py # NEW: Epoch and fitness tracking
-│   ├── reporting.py     # NEW: Extensive reporting and analytics
-│   ├── nanda_bridge.py  # NEW: NANDA Protocol interoperability
-│   ├── sandbox.py       # Safe code execution & test runner
-│   ├── supervisor.py    # Orchestration of agents + git
-│   ├── version_control.py # Git integration for safe rollback
-│   ├── memory.json      # Long-term memory of successful evolutions
-│   └── feature_queue.json # Queue of feature requests for the Planner
-├── logs/
-│   ├── system.log       # Runtime logs (read by Observer)
-│   └── reports/         # Generated evolution reports
-├── main_app.py          # The host application (evolved by the system)
-├── requirements.txt
-└── README.md
+├── evolution/             # The "Prefrontal Cortex"
+│   ├── agents.py          # Logic for Observer, Architect, Auditor, Planner
+│   ├── engine.py          # The heartbeat of the evolution loop
+│   ├── epoch_tracker.py   # Fitness scoring and lineage tracking
+│   ├── nanda_bridge.py    # Cross-agent interoperability layer
+│   └── sandbox.py         # Secure execution environment for testing
+├── logs/                  # System sensory data
+├── main_app.py            # The target organism (being evolved)
+└── voice_agent.py         # The voice-interactive gateway
 ```
 
-## How It Works
-
-### The Evolution Loop
-
-1. **Ingest** — The Observer reads `logs/system.log` (errors) and `evolution/feature_queue.json` (goals).
-2. **Reason** — Agents decide what code needs to be written or fixed.
-3. **Verify** — The Auditor checks syntax; the Sandbox runs tests.
-4. **Persist** — GitManager commits changes, and EpochTracker logs the cycle's fitness.
-5. **Report** — EvolutionReporter generates performance analytics.
-6. **Repeat** — The loop continues, continuously improving the codebase.
-
-## Interoperability (NANDA Protocol)
-
-The system now supports the **NANDA Protocol**, allowing it to collaborate with external agents (like Max Health or CMMC compliance agents). By broadcasting mutation tasks, the Evolution Agent can leverage a distributed network for complex analysis.
-
 ---
 
-## Safety Features
+## 🚀 Quick Start: Ignite the Hive
 
-- **Git Branching** — Every evolution runs on a dedicated `fix/` branch.
-- **Sandbox Testing** — Patches are syntax-checked and pytest-validated before applying.
-- **Rollback** — Failed evolutions trigger `git reset --hard HEAD~1` automatically.
-- **Memory Bank** — `memory.json` logs all successful evolutions for future reference.
-
----
-
-## Voice Coding Agent
-
-An interactive voice interface that lets you speak coding requests and receive working Python code — no keyboard required.
-
-### How It Works
-
-| Step | Component | Description |
-|---|---|---|
-| 1 | **Mic capture** | Records audio via `sounddevice` (push-to-talk) |
-| 2 | **STT** | Transcribes speech using OpenAI Whisper |
-| 3 | **Code generation** | GPT-4o converts the request into working Python code |
-| 4 | **TTS playback** | Explanation is read aloud via OpenAI TTS |
-| 5 | **Save** | Generated code can be optionally written to disk |
-
-All interactions are logged to `logs/voice_session.log`.
-
-### Quick Start
-
+### 1. Environmental Setup
 ```bash
-# Install audio dependencies
-pip install sounddevice soundfile numpy
-
-# Set your OpenAI key
-export OPENAI_API_KEY="sk-..."
-
-# Run the voice agent from the project root
-python voice_agent.py
-
-# Optional flags
-python voice_agent.py /path/to/project --seconds 15
+pip install -r requirements.txt
+export OPENAI_API_KEY="your-key-here"
 ```
 
-### Usage
+### 2. Launch the Voice Agent
+```bash
+python voice_agent.py --seconds 15
+```
 
-- **Press Enter** to open a 10-second recording window and speak your request.
-- **Type your request** directly and press Enter to skip microphone input.
-- Say **"quit"**, **"exit"**, or **"goodbye"** (or Ctrl+C) to stop the agent.
-- When code is generated, you are prompted to save it before the next turn.
-
-### Programmatic Use
-
-```python
-from evolution.voice_interface import VoiceCodingAgent
-
-agent = VoiceCodingAgent(project_root="/path/to/project", record_seconds=10)
-agent.run()
+### 3. Start Autonomously
+```bash
+# Force the system to refactor itself for performance
+python -m cli.evolve --task "Optimize loop latency in engine.py" --pop_size 8
 ```
 
 ---
 
-## Based On
+## 🛡️ Safety & Integrity
 
-- [AGI-Corporation/ralph](https://github.com/AGI-Corporation/ralph) — The base operational codebase (Body)
-- [interplaynetary/playtime](https://github.com/interplaynetary/playtime) — Agent-Native Development Environment concept
-- [AGI-Corporation/nanda-sdk](https://github.com/AGI-Corporation/nanda-sdk) — NANDA Protocol for agent interoperability
+- **Atomic Commits:** Every evolution occurs on an isolated `fix/` or `feat/` branch.
+- **Automated Rollback:** If a mutation fails runtime tests, the system triggers an immediate `git reset --hard` to the last known-good state.
+- **Sandboxed Validation:** No code touches the `main` branch without passing the Auditor's automated test suite.
 
-## License
+---
 
-MIT
+Maintained by **AGI Corporation** — *Pioneers in Self-Evolving Agentic Infrastructure.*
