@@ -7,6 +7,8 @@ import time
 from datetime import datetime
 from evolution.agents import ObserverAgent, ArchitectAgent, AuditorAgent
 from evolution.sandbox import Sandbox
+from evolution.epoch_tracker import EpochTracker
+from evolution.reporting import EvolutionReporter
 
 
 class EvolutionEngine:
@@ -24,6 +26,9 @@ class EvolutionEngine:
         self.architect = ArchitectAgent()
         self.auditor = AuditorAgent()
         self.sandbox = Sandbox(project_root)
+
+        self.epoch_tracker = EpochTracker(project_root)
+        self.reporter = EvolutionReporter(project_root)
 
         self.memory_file = os.path.join(project_root, "evolution", "memory.json")
         self._init_memory()
@@ -75,10 +80,14 @@ class EvolutionEngine:
         """
         print(f"\n[{datetime.now().isoformat()}] Starting Evolution Cycle...")
 
+        # Advance to the next epoch
+        self.epoch_tracker.start_epoch()
+
         # Step 1: Observe
         issue = self.observer.act(self.log_path)
         if not issue:
             print("[Engine] System is healthy. No evolution required.")
+            self.epoch_tracker.save_checkpoint()
             return False
 
         print(f"[Engine] Issue detected: {issue['type']}")
@@ -87,28 +96,46 @@ class EvolutionEngine:
         source_code = self.read_source()
         if not source_code:
             print("[Engine] Cannot read source. Aborting cycle.")
+            self.epoch_tracker.save_checkpoint()
             return False
+
+        # Register this fix attempt in the epoch tracker
+        agent_version = self.epoch_tracker.register_agent(
+            parent_id=None,
+            mutation_params={"mode": "bug_fix", "issue_type": issue["type"]},
+        )
 
         # Step 3: Architect generates fix
         proposed_patch = self.architect.act(issue, source_code)
         if not proposed_patch:
             print("[Engine] Architect failed to generate a patch. Aborting cycle.")
+            self.epoch_tracker.log_performance(agent_version.version_id, score=0.1, status="failed")
+            self.epoch_tracker.save_checkpoint()
             return False
 
         # Step 4: Auditor validates
         if not self.auditor.act(proposed_patch):
             print("[Engine] Auditor rejected the patch. Evolution aborted.")
+            self.epoch_tracker.log_performance(agent_version.version_id, score=0.2, status="failed")
+            self.epoch_tracker.save_checkpoint()
             return False
 
         # Step 5: Sandbox applies
         success = self.sandbox.verify_and_apply(proposed_patch, self.target_file)
         if success:
             print(f"[Engine] Evolution Successful!")
+            self.epoch_tracker.log_performance(agent_version.version_id, score=1.0, status="tested")
             self.save_memory(issue, proposed_patch)
             self.clear_log()
+            self.epoch_tracker.print_leaderboard()
+            self.epoch_tracker.save_checkpoint()
+            self.reporter.generate_system_summary()
+            self.reporter.generate_epoch_report(self.epoch_tracker.current_epoch)
             return True
         else:
             print("[Engine] Sandbox failed to apply patch. Evolution aborted.")
+            self.epoch_tracker.log_performance(agent_version.version_id, score=0.2, status="failed")
+            self.epoch_tracker.save_checkpoint()
             return False
 
     def run(self, interval=30, max_cycles=None):

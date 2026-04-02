@@ -180,6 +180,28 @@ class VoiceCodingAgent:
             f.write(code)
         return filepath
 
+    def queue_feature(self, name: str, description: str) -> bool:
+        """
+        Push a feature request into the Supervisor's feature_queue.json so it
+        is picked up autonomously on the next evolution cycle.
+        Returns True on success.
+        """
+        queue_path = os.path.join(self.project_root, "evolution", "feature_queue.json")
+        try:
+            if os.path.exists(queue_path):
+                with open(queue_path, "r") as f:
+                    queue = json.load(f)
+            else:
+                queue = []
+            queue.append({"name": name, "description": description})
+            with open(queue_path, "w") as f:
+                json.dump(queue, f, indent=4)
+            print(f"[VoiceAgent] Feature '{name}' queued for autonomous implementation.")
+            return True
+        except Exception as exc:
+            print(f"[VoiceAgent] Failed to queue feature: {exc}")
+            return False
+
     def log_session_entry(self, request: str, result: dict) -> None:
         """Append a session entry to logs/voice_session.log."""
         log_dir = os.path.join(self.project_root, "logs")
@@ -285,6 +307,25 @@ class VoiceCodingAgent:
                         msg = f"Code saved to {filename}."
                         print(f"[VoiceAgent] Saved: {saved_path}")
                         self.speak(msg)
+
+                        # Offer to queue the saved code as an autonomous feature task
+                        try:
+                            queue_choice = input(
+                                "Queue this as a supervised feature task for the Evolution Engine? [y/N]: "
+                            ).strip().lower()
+                        except (KeyboardInterrupt, EOFError):
+                            break
+
+                        if queue_choice == "y":
+                            feature_name = filename.replace(".py", "").replace("_", " ").title()
+                            self.queue_feature(
+                                name=feature_name,
+                                description=(
+                                    f"Integrate and evolve the voice-generated code from {filename}. "
+                                    f"Original request: {user_text}"
+                                ),
+                            )
+                            self.speak(f"Feature '{feature_name}' has been queued for autonomous implementation.")
                     except OSError as exc:
                         print(f"[VoiceAgent] Failed to save: {exc}")
                         self.speak("I could not save the file.")
