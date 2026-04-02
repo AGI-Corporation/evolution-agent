@@ -1,5 +1,9 @@
 # 🧬 Evolution Agent: The Self-Actualizing Codebase
 
+[![Evolution Cycle](https://img.shields.io/badge/Evolution-Continuous-brightgreen?style=for-the-badge&logo=dna)](https://github.com/AGI-Corporation/evolution-agent)
+[![NANDA Interop](https://img.shields.io/badge/NANDA-Bridge_Active-blue?style=for-the-badge&logo=intercom)](https://github.com/AGI-Corporation/nanda-sdk)
+[![Voice Interface](https://img.shields.io/badge/Interface-Voice_Native-orange?style=for-the-badge&logo=microphone)](https://github.com/AGI-Corporation/evolution-agent)
+
 > "The first step toward true AGI is a system that can reason about, repair, and expand its own architecture."
 
 Evolution Agent is a **Self-Coding / Self-Evolving meta-framework** built upon the [AGI-Corporation/ralph](https://github.com/AGI-Corporation/ralph) operative core. It transforms a static repository into a living organism that autonomously monitors its own health, patches vulnerabilities, and implements new features through a high-fidelity multi-agent feedback loop.
@@ -10,22 +14,45 @@ Evolution Agent is a **Self-Coding / Self-Evolving meta-framework** built upon t
 
 The system operates as a decentralized hive of specialized agents, each fine-tuned for a specific stage of the developmental lifecycle.
 
-| Agent | Metaphor | Primary Mission |
-| :--- | :--- | :--- |
-| **Observer** | 👁️ The Senses | Scans `logs/system.log` and metrics to detect anomalies or "evolutionary opportunities." |
-| **Architect** | 🧠 The Brain | Analyzes source code and context to design high-level patches and feature implementations. |
-| **Auditor** | 🛡️ The Immune System | Validates logic, checks syntax, and enforces security guardrails before any code is applied. |
-| **Planner** | 🚀 The Growth Engine | Deconstructs `feature_queue.json` into actionable development sprints for the hive. |
-
-A **Supervisor** orchestrates the global loop, managing state persistence via **GitManager** and cross-agent telemetry through the **NANDABridge**.
+| Agent | Metaphor | Primary Mission | Color Code |
+| :--- | :--- | :--- | :--- |
+| **Observer** | 👁️ The Senses | Scans logs & metrics to detect anomalies. | 🔵 **Azure** |
+| **Architect** | 🧠 The Brain | Designs high-level patches and feature implementations. | 🔴 **Crimson** |
+| **Auditor** | 🛡️ The Immune System | Validates logic and enforces security guardrails. | 🟢 **Emerald** |
+| **Planner** | 🚀 The Growth Engine | Deconstructs goals into actionable sprints. | 🟡 **Amber** |
 
 ---
 
-## 🧬 Core Evolution Components
+## 🛠️ The Evolution Lifecycle
 
-- **Epoch Tracker** (`evolution/epoch_tracker.py`): The system's "DNA ledger." It versions every mutation, calculates fitness scores (Success Rate × Efficiency), and maintains the "Hall of Fame" of superior agent configurations.
-- **Evolution Reporter** (`evolution/reporting.py`): Generates vivid, data-driven analytics on mutation lineages, heatmaps of code changes, and performance deltas across generations.
-- **NANDA Bridge** (`evolution/nanda_bridge.py`): Standardizes interoperability using the [NANDA Protocol](https://github.com/AGI-Corporation/nanda-sdk), allowing the hive to collaborate with external agents (e.g., specialized medical or security agents).
+```mermaid
+graph LR
+    subgraph Sensory_Input [Sensory Input]
+    A[Observer] -- "Detects Error" --> B{Architect}
+    end
+
+    subgraph Neural_Processing [Neural Processing]
+    B -- "Designs Patch" --> C[Auditor]
+    C -- "Fails Validation" --> B
+    end
+
+    subgraph Physical_Action [Physical Action]
+    C -- "Passes Tests" --> D[GitManager]
+    D -- "Commits to fix/ branch" --> E[EpochTracker]
+    end
+
+    subgraph Genetic_Logging [Genetic Logging]
+    E -- "Updates Hall of Fame" --> F[EvolutionReporter]
+    F -- "Generates Analytics" --> A
+    end
+
+    style A fill:#e1f5fe,stroke:#01579b
+    style B fill:#ffebee,stroke:#b71c1c
+    style C fill:#e8f5e9,stroke:#1b5e20
+    style D fill:#f3e5f5,stroke:#4a148c
+    style E fill:#fff3e0,stroke:#e65100
+    style F fill:#f1f8e9,stroke:#33691e
+```
 
 ---
 
@@ -34,26 +61,31 @@ A **Supervisor** orchestrates the global loop, managing state persistence via **
 Step into the future of development with a voice-native interface that bridges human intent and machine execution.
 
 ### ✨ Vivid Workflow Example
-1. **Initiate:** You press `Enter`.
-2. **Speak:** "Add an async health-check endpoint to the main app that returns the current epoch from the tracker."
-3. **Reason:** The system uses **Whisper STT** to transcribe your voice, and **GPT-4o** to architect the code.
-4. **Listen:** The agent explains its plan aloud via **OpenAI TTS**: *"I am adding a `/health` route to main_app.py that queries the EpochTracker for the latest state."*
-5. **Execute:** The code is generated, displayed, and saved to your project.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Whisper as 🎙️ Whisper STT
+    participant GPT as 🧠 GPT-4o
+    participant TTS as 🔊 OpenAI TTS
+    participant Disk as 💾 Disk
+
+    User->>Whisper: "Add an async health route"
+    Whisper->>GPT: Transcribed Intent
+    Note right of GPT: Architecting Code...
+    GPT->>User: Display Generated Code
+    GPT->>TTS: "Adding /health route to main_app.py"
+    TTS-->>User: (Spoken Explanation)
+    User->>Disk: Confirm & Save
+```
 
 ---
 
-## 🛠️ How It Works: The Continuous Loop
+## 🧬 Core Evolution Components
 
-```mermaid
-graph TD
-    A[Observer: Detects Error/Goal] --> B[Architect: Designs Solution]
-    B --> C[Auditor: Validates & Tests]
-    C -- Pass --> D[GitManager: Commits & Branches]
-    C -- Fail --> B
-    D --> E[EpochTracker: Logs Fitness]
-    E --> F[EvolutionReporter: Analytics]
-    F --> A
-```
+- **Epoch Tracker** (`evolution/epoch_tracker.py`): The system's **"DNA Ledger."** It versions every mutation, calculates fitness scores, and maintains the **"Hall of Fame"** of superior agent configurations.
+- **Evolution Reporter** (`evolution/reporting.py`): Generates vivid, data-driven analytics on mutation lineages, heatmaps of code changes, and performance deltas across generations.
+- **NANDA Bridge** (`evolution/nanda_bridge.py`): Standardizes interoperability using the **NANDA Protocol**, allowing the hive to collaborate with external agent networks.
 
 ---
 
@@ -61,15 +93,15 @@ graph TD
 
 ```text
 evolution-agent/
-├── evolution/             # The "Prefrontal Cortex"
+├── evolution/             # 🧠 The "Prefrontal Cortex"
 │   ├── agents.py          # Logic for Observer, Architect, Auditor, Planner
-│   ├── engine.py          # The heartbeat of the evolution loop
-│   ├── epoch_tracker.py   # Fitness scoring and lineage tracking
-│   ├── nanda_bridge.py    # Cross-agent interoperability layer
-│   └── sandbox.py         # Secure execution environment for testing
-├── logs/                  # System sensory data
-├── main_app.py            # The target organism (being evolved)
-└── voice_agent.py         # The voice-interactive gateway
+│   ├── engine.py          # 💓 The heartbeat of the evolution loop
+│   ├── epoch_tracker.py   # 🧬 Fitness scoring and lineage tracking
+│   ├── nanda_bridge.py    # 🌐 Cross-agent interoperability layer
+│   └── sandbox.py         # 🛡️ Secure execution environment
+├── logs/                  # 👁️ System sensory data
+├── main_app.py            # 🍄 The target organism (being evolved)
+└── voice_agent.py         # 🎙️ The voice-interactive gateway
 ```
 
 ---
