@@ -73,6 +73,58 @@ The system now supports the **NANDA Protocol**, allowing it to collaborate with 
 - **Rollback** — Failed evolutions trigger `git reset --hard HEAD~1` automatically.
 - **Memory Bank** — `memory.json` logs all successful evolutions for future reference.
 
+---
+
+## Voice Coding Agent
+
+An interactive voice interface that lets you speak coding requests and receive working Python code — no keyboard required.
+
+### How It Works
+
+| Step | Component | Description |
+|---|---|---|
+| 1 | **Mic capture** | Records audio via `sounddevice` (push-to-talk) |
+| 2 | **STT** | Transcribes speech using OpenAI Whisper |
+| 3 | **Code generation** | GPT-4o converts the request into working Python code |
+| 4 | **TTS playback** | Explanation is read aloud via OpenAI TTS |
+| 5 | **Save** | Generated code can be optionally written to disk |
+
+All interactions are logged to `logs/voice_session.log`.
+
+### Quick Start
+
+```bash
+# Install audio dependencies
+pip install sounddevice soundfile numpy
+
+# Set your OpenAI key
+export OPENAI_API_KEY="sk-..."
+
+# Run the voice agent from the project root
+python voice_agent.py
+
+# Optional flags
+python voice_agent.py /path/to/project --seconds 15
+```
+
+### Usage
+
+- **Press Enter** to open a 10-second recording window and speak your request.
+- **Type your request** directly and press Enter to skip microphone input.
+- Say **"quit"**, **"exit"**, or **"goodbye"** (or Ctrl+C) to stop the agent.
+- When code is generated, you are prompted to save it before the next turn.
+
+### Programmatic Use
+
+```python
+from evolution.voice_interface import VoiceCodingAgent
+
+agent = VoiceCodingAgent(project_root="/path/to/project", record_seconds=10)
+agent.run()
+```
+
+---
+
 ## Based On
 
 - [AGI-Corporation/ralph](https://github.com/AGI-Corporation/ralph) — The base operational codebase (Body)

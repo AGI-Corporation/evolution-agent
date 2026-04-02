@@ -7,6 +7,11 @@ pytest>=7.0.0
 # Utilities (standard library, no extra deps needed for core functionality)
 # subprocess, json, os, ast, inspect, tempfile are all stdlib
 
+# Voice coding agent — audio I/O for mic capture and TTS playback
+sounddevice>=0.4.6
+soundfile>=0.12.1
+numpy>=1.24.0
+
 # Optional: for Anthropic Claude support
 # anthropic>=0.20.0
 
