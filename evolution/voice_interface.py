@@ -54,6 +54,7 @@ class VoiceCodingAgent:
         self.record_seconds = record_seconds
         self.client = _openai_client
         self.conversation_history: list[dict] = []
+        self.feature_queue_path = os.path.join(project_root, "evolution", "feature_queue.json")
 
         if not AUDIO_AVAILABLE:
             print(
@@ -180,6 +181,30 @@ class VoiceCodingAgent:
             f.write(code)
         return filepath
 
+    def push_to_feature_queue(self, name: str, description: str) -> bool:
+        """
+        Append a feature request to the Evolution Engine's feature_queue.json.
+        Returns True if the entry was queued successfully.
+        """
+        try:
+            os.makedirs(os.path.dirname(self.feature_queue_path), exist_ok=True)
+            queue: list = []
+            if os.path.exists(self.feature_queue_path):
+                with open(self.feature_queue_path, "r") as f:
+                    queue = json.load(f)
+            queue.append({
+                "name": name,
+                "description": description,
+                "created_at": datetime.now().isoformat(),
+            })
+            with open(self.feature_queue_path, "w") as f:
+                json.dump(queue, f, indent=2)
+            print(f"[VoiceAgent] Queued feature '{name}' for the Evolution Engine.")
+            return True
+        except Exception as exc:
+            print(f"[VoiceAgent] Failed to queue feature: {exc}")
+            return False
+
     def log_session_entry(self, request: str, result: dict) -> None:
         """Append a session entry to logs/voice_session.log."""
         log_dir = os.path.join(self.project_root, "logs")
@@ -288,3 +313,16 @@ class VoiceCodingAgent:
                     except OSError as exc:
                         print(f"[VoiceAgent] Failed to save: {exc}")
                         self.speak("I could not save the file.")
+
+                try:
+                    queue_choice = input("Queue as Evolution Engine feature? [y/N]: ").strip().lower()
+                except (KeyboardInterrupt, EOFError):
+                    break
+
+                if queue_choice == "y":
+                    feature_name = os.path.splitext(os.path.basename(filename))[0]
+                    self.push_to_feature_queue(
+                        name=feature_name,
+                        description=explanation,
+                    )
+                    self.speak(f"Feature {feature_name} queued for the evolution engine.")
