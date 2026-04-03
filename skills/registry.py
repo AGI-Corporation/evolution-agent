@@ -26,7 +26,28 @@ _BUILTIN_SKILLS: Dict[str, Dict[str, Any]] = {
             "balance_check",
         ],
         "builtin": True,
-    }
+    },
+    "x402/agents": {
+        "id": "x402/agents",
+        "name": "x402 Payment Agent",
+        "module": "skills.x402.agents",
+        "class": "X402PaymentAgent",
+        "description": (
+            "Autonomous HTTP micropayments via the x402 protocol. "
+            "Fetches x402-gated resources by automatically paying USDC "
+            "on Base (or other EVM networks) using EIP-3009 "
+            "transferWithAuthorization. Supports simulation mode when "
+            "no wallet credentials are present."
+        ),
+        "capabilities": [
+            "x402_fetch",
+            "x402_pay",
+            "x402_check",
+            "payment_history",
+            "wallet_status",
+        ],
+        "builtin": True,
+    },
 }
 
 

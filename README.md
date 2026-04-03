@@ -33,18 +33,30 @@ evolution-agent/
 │   ├── __init__.py
 │   ├── agents.py        # Observer, Architect, Auditor, Planner agents
 │   ├── engine.py        # Main loop controller
-│   ├── epoch_tracker.py # NEW: Epoch and fitness tracking
-│   ├── reporting.py     # NEW: Extensive reporting and analytics
-│   ├── nanda_bridge.py  # NEW: NANDA Protocol interoperability
+│   ├── epoch_tracker.py # Epoch and fitness tracking
+│   ├── reporting.py     # Extensive reporting and analytics
+│   ├── nanda_bridge.py  # NANDA Protocol – skill routing, peer advertisement
 │   ├── sandbox.py       # Safe code execution & test runner
-│   ├── supervisor.py    # Orchestration of agents + git
+│   ├── supervisor.py    # Orchestration of agents + git + skills + NANDA
 │   ├── version_control.py # Git integration for safe rollback
 │   ├── memory.json      # Long-term memory of successful evolutions
-│   └── feature_queue.json # Queue of feature requests for the Planner
+│   └── feature_queue.json # Queue of feature/skill requests
+├── skills/              # Pluggable skill agents
+│   ├── registry.py      # Skill registry (built-ins + custom)
+│   ├── cli.py           # `python -m skills` CLI
+│   ├── bitrefill/       # Bitrefill trading skill
+│   │   ├── api.py       # Bitrefill v1 REST API client
+│   │   └── agents.py    # BitrefillTradingAgent
+│   └── x402/            # x402 micropayment skill
+│       ├── client.py    # x402-aware HTTP client (EIP-3009 payment flow)
+│       └── agents.py    # X402PaymentAgent
+├── bin/
+│   └── skills.js        # npx shim → python -m skills
 ├── logs/
 │   ├── system.log       # Runtime logs (read by Observer)
 │   └── reports/         # Generated evolution reports
 ├── main_app.py          # The host application (evolved by the system)
+├── package.json         # npm package (npx skills)
 ├── requirements.txt
 └── README.md
 ```
@@ -60,18 +72,62 @@ evolution-agent/
 5. **Report** — EvolutionReporter generates performance analytics.
 6. **Repeat** — The loop continues, continuously improving the codebase.
 
-## Interoperability (NANDA Protocol)
+## Interoperability (NANDA Protocol – v2)
 
-The system now supports the **NANDA Protocol**, allowing it to collaborate with external agents (like Max Health or CMMC compliance agents). By broadcasting mutation tasks, the Evolution Agent can leverage a distributed network for complex analysis.
+The system integrates deeply with the **NANDA Protocol**, enabling full distributed skill-agent coordination:
+
+### What the NANDA Bridge does
+
+| Feature | Description |
+|---|---|
+| **Node registration** | Publishes this node's capabilities (including all loaded skills) to the network at startup. |
+| **Skill advertisement** | When a new skill is loaded, its capabilities are immediately registered on the network so peers can discover them. |
+| **Inbound task routing** | Routes incoming NANDA tasks (`bitrefill_trade`, `x402_payment`, `skill_dispatch`, `evolution_mutation`) to the correct local skill agent. |
+| **Result broadcasting** | After every skill task, broadcasts the result back to the network for cross-agent observability and downstream chaining. |
+| **Supervisor back-reference** | The bridge holds a reference to the Supervisor so external peers can trigger full skill-task pipelines, including memory logging. |
+
+### Task types on the network
+
+| Task type | Routed to |
+|---|---|
+| `evolution_mutation` | Supervisor bug-fix / planner pipeline |
+| `bitrefill_trade` | `BitrefillTradingAgent` |
+| `x402_payment` | `X402PaymentAgent` |
+| `skill_dispatch` | Any registered skill (by `skill_id` in payload) |
+
+### Routing an incoming task programmatically
+
+```python
+from evolution.nanda_bridge import NANDABridge
+
+bridge = supervisor.nanda_bridge
+
+# Route a Bitrefill trade task received from a peer
+result = bridge.route_task({
+    "task_type": "bitrefill_trade",
+    "task_id": "peer-task-001",
+    "payload": {
+        "skill_id": "bitrefill/agents",
+        "context": {"action": "search", "query": "amazon", "country": "US"},
+    },
+})
+```
+
+### Broadcasting a skill task to the network
+
+```python
+import asyncio
+
+task_id = asyncio.run(
+    bridge.broadcast_skill_task(
+        skill_id="x402/agents",
+        context={"action": "fetch", "url": "https://api.example.com/premium"},
+        name="Fetch premium data",
+    )
+)
+```
 
 ---
-
-## Safety Features
-
-- **Git Branching** — Every evolution runs on a dedicated `fix/` branch.
-- **Sandbox Testing** — Patches are syntax-checked and pytest-validated before applying.
-- **Rollback** — Failed evolutions trigger `git reset --hard HEAD~1` automatically.
-- **Memory Bank** — `memory.json` logs all successful evolutions for future reference.
 
 ## Skills System
 
@@ -82,9 +138,11 @@ The Evolution Agent supports a pluggable **skills** architecture that lets you e
 ```bash
 # Via npx (requires Node.js ≥ 14)
 npx skills add bitrefill/agents
+npx skills add x402/agents
 
 # Or directly via Python
 python -m skills add bitrefill/agents
+python -m skills list
 ```
 
 ### Available built-in skills
@@ -92,14 +150,11 @@ python -m skills add bitrefill/agents
 | Skill ID | Description |
 |---|---|
 | `bitrefill/agents` | Trade on Bitrefill – search gift cards & mobile top-ups, place orders, and track payments using Bitcoin and other cryptocurrencies. |
+| `x402/agents` | Autonomous HTTP micropayments via the [x402 protocol](https://www.x402.org). Fetches x402-gated resources by paying USDC on Base (EIP-3009). Simulation mode when no wallet is configured. |
 
-### Listing installed skills
+---
 
-```bash
-python -m skills list
-```
-
-### Using the Bitrefill Trading Agent
+### Bitrefill Trading Agent
 
 Set your credentials:
 
@@ -125,7 +180,7 @@ Add a skill task to the feature queue (`evolution/feature_queue.json`):
 ]
 ```
 
-The supervisor picks it up on the next cycle and dispatches it to `BitrefillTradingAgent`.
+The supervisor picks it up on the next cycle, dispatches it to `BitrefillTradingAgent`, and broadcasts the result to the NANDA network.
 
 #### Supported actions
 
@@ -152,6 +207,70 @@ order = agent.buy("netflix-us", value=15.0, payment_method="lightning")
 
 # Track
 status = agent.get_order_status(order["id"])
+```
+
+---
+
+### x402 Payment Agent
+
+The **x402 protocol** (https://www.x402.org) enables HTTP-native stablecoin micropayments.
+When a server returns `HTTP 402 Payment Required`, the agent automatically:
+1. Parses the payment requirements (network, asset, amount, recipient).
+2. Signs an EIP-3009 `transferWithAuthorization` payload.
+3. Retries the request with the `X-PAYMENT` header.
+
+Set your wallet credentials for real on-chain payments (omit for simulation mode):
+
+```bash
+export X402_PRIVATE_KEY="0x..."           # hex EVM private key
+export X402_WALLET_ADDRESS="0x..."        # matching 0x EVM address
+```
+
+Add a skill task to the feature queue:
+
+```json
+[
+  {
+    "type": "skill",
+    "skill_id": "x402/agents",
+    "name": "Fetch premium API data",
+    "context": {
+      "action": "fetch",
+      "url": "https://api.example.com/premium",
+      "max_usdc": 0.10
+    }
+  }
+]
+```
+
+#### Supported actions
+
+| action | Required context keys | Description |
+|---|---|---|
+| `fetch` | `url`, `method` (opt), `headers` (opt), `max_usdc` (opt) | Fetch a URL, auto-paying via x402 if required |
+| `pay` | `url`, `method` (opt) | Force a paid fetch (no amount limit check) |
+| `check` | `url` | Probe a URL for x402 requirements without paying |
+| `status` | — | Return wallet and session payment summary |
+| `history` | — | Return the session payment ledger |
+
+#### Programmatic usage
+
+```python
+from skills.x402 import X402PaymentAgent
+
+agent = X402PaymentAgent(max_auto_pay_usdc=0.50)
+
+# Check if a resource requires payment
+info = agent.check("https://api.example.com/premium")
+# → {"x402_required": True, "payment_requirements": {...}}
+
+# Fetch with auto-pay
+result = agent.fetch("https://api.example.com/premium")
+print(result["body"])
+
+# Session summary
+print(agent.status())
+# → {"simulation_mode": True, "session_total_usdc": 0.000001, ...}
 ```
 
 ---

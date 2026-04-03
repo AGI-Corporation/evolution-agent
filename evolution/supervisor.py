@@ -1,6 +1,7 @@
 # evolution/supervisor.py
 # Orchestrates all agents: bug fixing, feature planning, git integration
 
+import asyncio
 import logging
 import os
 import json
@@ -9,6 +10,7 @@ from datetime import datetime
 from evolution.agents import ObserverAgent, ArchitectAgent, AuditorAgent, PlannerAgent
 from evolution.sandbox import Sandbox
 from evolution.version_control import GitManager
+from evolution.nanda_bridge import NANDABridge, setup_nanda
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ class Supervisor:
     Loop:
     1. Check for bugs (system.log) -> run bug fix cycle
     2. Check for feature requests (feature_queue.json) -> run feature cycle
-    3. Dispatch skill-agent tasks (e.g. Bitrefill trading) if queued
+    3. Dispatch skill-agent tasks (bitrefill/agents, x402/agents, etc.) if queued
     4. Sleep and repeat
 
     Skill agents can be loaded via :meth:`load_skill` and dispatched by adding
@@ -41,9 +43,21 @@ class Supervisor:
             "name": "Bitrefill search",
             "context": {"action": "search", "query": "amazon", "country": "US"}
         }
+
+        {
+            "type": "skill",
+            "skill_id": "x402/agents",
+            "name": "Fetch x402 resource",
+            "context": {"action": "fetch", "url": "https://api.example.com/premium"}
+        }
+
+    NANDA Integration:
+    The Supervisor automatically initializes a :class:`~evolution.nanda_bridge.NANDABridge`
+    and advertises all loaded skill capabilities to the distributed NANDA network.
+    Skill task results are broadcast back to the network for cross-agent observability.
     """
 
-    def __init__(self, project_root):
+    def __init__(self, project_root, enable_nanda: bool = True):
         self.project_root = project_root
         self.log_path = os.path.join(project_root, "logs", "system.log")
         self.queue_path = os.path.join(project_root, "evolution", "feature_queue.json")
@@ -61,7 +75,14 @@ class Supervisor:
         # Loaded skill agent instances keyed by skill_id
         self._skill_agents: dict = {}
 
+        # NANDA bridge (wired after _init_files)
+        self.nanda_bridge: NANDABridge = None  # type: ignore
+
         self._init_files()
+
+        # Initialize NANDA bridge (gracefully degrade on failure)
+        if enable_nanda:
+            self._init_nanda()
 
     def _init_files(self):
         """Ensure all required files exist."""
@@ -78,6 +99,15 @@ class Supervisor:
         if not os.path.exists(self.memory_path):
             with open(self.memory_path, "w") as f:
                 json.dump([], f)
+
+    def _init_nanda(self):
+        """Initialize the NANDA bridge and register this node on the network."""
+        try:
+            setup_nanda(self, node_name="evolution_master")
+            print("[Supervisor] NANDA bridge initialized.")
+        except Exception as exc:
+            logger.warning("[Supervisor] NANDA bridge init failed (non-fatal): %s", exc)
+            self.nanda_bridge = None
 
     def read_source(self, filepath=None):
         """Read a source file."""
@@ -252,6 +282,9 @@ class Supervisor:
         """
         Load and cache a skill agent by its registry ID.
 
+        When a skill is loaded for the first time, its capabilities are
+        advertised to the NANDA network so peer nodes can discover them.
+
         Args:
             skill_id: Skill identifier (e.g. ``"bitrefill/agents"``).
             **kwargs: Forwarded to the skill agent constructor.
@@ -272,8 +305,17 @@ class Supervisor:
             agent = _skills_registry.load_skill_agent(skill_id, **kwargs)
             self._skill_agents[skill_id] = agent
             print(f"[Supervisor] Skill loaded: {skill_id}")
+
+            # Advertise new skill capabilities to the NANDA network
+            if self.nanda_bridge is not None:
+                entry = _skills_registry.get_skill(skill_id)
+                if entry:
+                    self.nanda_bridge.register_skill_capabilities(
+                        skill_id, entry.get("capabilities", [])
+                    )
+
             return agent
-        except (KeyError, ImportError, Exception) as exc:
+        except Exception as exc:
             print(f"[Supervisor] Failed to load skill '{skill_id}': {exc}")
             return None
 
@@ -285,6 +327,10 @@ class Supervisor:
             ``skill_id`` – registered skill identifier
             ``context``  – dict forwarded to the skill agent's ``act()`` method
             ``name``     – human-readable task name (for logging / memory)
+
+        After execution the result is:
+          - saved to ``memory.json``
+          - broadcast to the NANDA network via :meth:`~NANDABridge.broadcast_result`
 
         Returns ``True`` if the task was handled successfully.
         """
@@ -303,7 +349,8 @@ class Supervisor:
 
         result = agent.act(context)
         success = result.get("success", False)
-        self.save_memory({
+
+        memory_entry = {
             "type": "skill_task",
             "timestamp": datetime.now().isoformat(),
             "skill_id": skill_id,
@@ -311,7 +358,33 @@ class Supervisor:
             "action": result.get("action"),
             "status": "success" if success else "failed",
             "error": result.get("error"),
-        })
+        }
+        self.save_memory(memory_entry)
+
+        # Broadcast result to NANDA network (best-effort, non-blocking)
+        if self.nanda_bridge is not None:
+            try:
+                task_id = f"local_{skill_id}_{datetime.now().timestamp()}"
+                asyncio.get_event_loop().run_until_complete(
+                    self.nanda_bridge.broadcast_result(task_id, result, skill_id)
+                )
+            except RuntimeError:
+                # No running event loop – create a temporary one
+                try:
+                    loop = asyncio.new_event_loop()
+                    loop.run_until_complete(
+                        self.nanda_bridge.broadcast_result(
+                            f"local_{skill_id}_{datetime.now().timestamp()}",
+                            result,
+                            skill_id,
+                        )
+                    )
+                    loop.close()
+                except Exception as exc:
+                    logger.debug("[Supervisor] NANDA broadcast skipped: %s", exc)
+            except Exception as exc:
+                logger.debug("[Supervisor] NANDA broadcast skipped: %s", exc)
+
         if success:
             print(f"[Supervisor] Skill task succeeded: {name}")
         else:
