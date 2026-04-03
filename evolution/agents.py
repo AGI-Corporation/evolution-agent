@@ -91,6 +91,7 @@ class ArchitectAgent(BaseAgent):
     """
     def __init__(self):
         super().__init__("Architect")
+        self._context_bridge = RuntimeContextBridge()
 
     def act(self, issue, source_code):
         """
@@ -98,6 +99,15 @@ class ArchitectAgent(BaseAgent):
         Returns the patched code as a string.
         """
         print(f"[{self.name}] Generating fix for issue: {issue['type']}")
+
+        # Enrich the prompt with live runtime context when available
+        runtime_ctx = ""
+        try:
+            ctx = self._context_bridge.execute(scope_name="calculate_division", depth=1)
+            if "error" not in ctx:
+                runtime_ctx = f"\nRUNTIME CONTEXT:\n{json.dumps(ctx, indent=2)}\n"
+        except Exception:
+            pass
 
         prompt = f"""You are a Senior Python Developer. Your task is to fix a bug in the code below.
 
@@ -108,7 +118,7 @@ CURRENT SOURCE CODE:
 
 ERROR DETECTED:
 {issue['log_excerpt']}
-
+{runtime_ctx}
 Instructions:
 - Fix the bug. Do NOT change the overall structure or functionality.
 - Return ONLY the complete fixed Python source code, no explanations.

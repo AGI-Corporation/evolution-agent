@@ -1,6 +1,7 @@
 # evolution/supervisor.py
 # Orchestrates all agents: bug fixing, feature planning, git integration
 
+import asyncio
 import os
 import json
 import time
@@ -8,6 +9,9 @@ from datetime import datetime
 from evolution.agents import ObserverAgent, ArchitectAgent, AuditorAgent, PlannerAgent
 from evolution.sandbox import Sandbox
 from evolution.version_control import GitManager
+from evolution.epoch_tracker import EpochTracker
+from evolution.reporting import EvolutionReporter
+from evolution.nanda_bridge import NANDABridge
 
 
 class Supervisor:
@@ -20,6 +24,9 @@ class Supervisor:
     2. Check for feature requests (feature_queue.json) -> run feature cycle
     3. Sleep and repeat
     """
+
+    # Generate a summary report every N cycles
+    REPORT_INTERVAL = 5
 
     def __init__(self, project_root):
         self.project_root = project_root
@@ -36,6 +43,12 @@ class Supervisor:
         self.sandbox = Sandbox(project_root)
         self.git = GitManager(project_root)
 
+        # Deep integrations
+        self.epoch_tracker = EpochTracker(project_root)
+        self.reporter = EvolutionReporter(project_root)
+        self.nanda = NANDABridge("evolution_master")
+
+        self._cycle_count = 0
         self._init_files()
 
     def _init_files(self):
@@ -101,10 +114,30 @@ class Supervisor:
         if not branch_name:
             print("[Supervisor] Could not create safety branch. Proceeding without git branching.")
 
+        # Register this mutation attempt with EpochTracker
+        mutation_params = {
+            "type": "bug_fix",
+            "issue_type": issue["type"],
+            "branch": branch_name or "none",
+        }
+        agent_version = self.epoch_tracker.register_agent(
+            parent_id=None,
+            mutation_params=mutation_params,
+        )
+
+        # Broadcast to NANDA network
+        self._broadcast_mutation({
+            "mutation_type": "bug_fix",
+            "issue": issue["type"],
+            "branch": branch_name,
+            "agent_version": agent_version.version_id,
+        })
+
         # Generate and validate patch
         patch = self.architect.act(issue, source_code)
         if not patch or not self.auditor.act(patch):
             print("[Supervisor] Bug fix patch rejected.")
+            self.epoch_tracker.log_performance(agent_version.version_id, 0.0, status="failed")
             if branch_name:
                 self.git.checkout_branch("main")
             return False
@@ -119,6 +152,7 @@ class Supervisor:
                 if branch_name:
                     self.git.commit_changes(f"fix: Auto-fix {issue['type']} - {datetime.now().isoformat()}")
                     self.git.merge_to_main(branch_name)
+                self.epoch_tracker.log_performance(agent_version.version_id, 1.0, status="tested")
                 self.save_memory({
                     "type": "bug_fix",
                     "timestamp": datetime.now().isoformat(),
@@ -130,12 +164,14 @@ class Supervisor:
                 return True
             else:
                 print("[Supervisor] Tests failed after patch. Rolling back.")
+                self.epoch_tracker.log_performance(agent_version.version_id, 0.1, status="failed")
                 if branch_name:
                     self.git.rollback()
                     self.git.checkout_branch("main")
                 return False
         else:
             print("[Supervisor] Patch could not be applied.")
+            self.epoch_tracker.log_performance(agent_version.version_id, 0.0, status="failed")
             if branch_name:
                 self.git.checkout_branch("main")
             return False
@@ -175,10 +211,30 @@ class Supervisor:
         # Create a feature branch
         branch_name = self.git.create_evolution_branch(prefix="feature")
 
+        # Register this mutation attempt with EpochTracker
+        mutation_params = {
+            "type": "feature",
+            "feature_name": requirement.get("name", "unnamed"),
+            "branch": branch_name or "none",
+        }
+        agent_version = self.epoch_tracker.register_agent(
+            parent_id=None,
+            mutation_params=mutation_params,
+        )
+
+        # Broadcast to NANDA network
+        self._broadcast_mutation({
+            "mutation_type": "feature",
+            "feature": requirement.get("name"),
+            "branch": branch_name,
+            "agent_version": agent_version.version_id,
+        })
+
         # Plan the feature
         feature_result = self.planner.implement_feature(requirement, current_files)
         if not feature_result:
             print("[Supervisor] Planner failed to generate feature code.")
+            self.epoch_tracker.log_performance(agent_version.version_id, 0.0, status="failed")
             self.save_feature_queue(queue)  # Remove from queue anyway
             if branch_name:
                 self.git.checkout_branch("main")
@@ -194,6 +250,7 @@ class Supervisor:
                 if branch_name:
                     self.git.commit_changes(f"feat: {requirement.get('name', 'new-feature')} - {datetime.now().isoformat()}")
                     self.git.merge_to_main(branch_name)
+                self.epoch_tracker.log_performance(agent_version.version_id, 1.0, status="tested")
                 self.save_memory({
                     "type": "feature",
                     "timestamp": datetime.now().isoformat(),
@@ -206,11 +263,13 @@ class Supervisor:
                 return True
             else:
                 print("[Supervisor] Tests failed after feature. Rolling back.")
+                self.epoch_tracker.log_performance(agent_version.version_id, 0.1, status="failed")
                 if branch_name:
                     self.git.rollback()
                     self.git.checkout_branch("main")
         else:
             print("[Supervisor] Feature files could not be applied.")
+            self.epoch_tracker.log_performance(agent_version.version_id, 0.0, status="failed")
             if branch_name:
                 self.git.checkout_branch("main")
 
@@ -218,6 +277,13 @@ class Supervisor:
         queue.insert(0, requirement)
         self.save_feature_queue(queue)
         return False
+
+    def _broadcast_mutation(self, context: dict):
+        """Fire-and-forget broadcast to the NANDA network."""
+        try:
+            asyncio.run(self.nanda.broadcast_mutation_task(context))
+        except Exception as e:
+            print(f"[Supervisor] NANDA broadcast failed (non-fatal): {e}")
 
     def run(self, interval=30):
         """
@@ -229,13 +295,26 @@ class Supervisor:
         print(f"[Supervisor] Cycle interval: {interval}s")
 
         while True:
-            print(f"\n[{datetime.now().isoformat()}] === Running Evolution Cycle ===")
+            self._cycle_count += 1
+            print(f"\n[{datetime.now().isoformat()}] === Running Evolution Cycle {self._cycle_count} ===")
+
+            # Start a new epoch for this cycle
+            self.epoch_tracker.start_epoch()
 
             # Priority 1: Fix bugs
             fixed = self.process_bug_fix()
             if not fixed:
                 # Priority 2: Implement features
                 self.process_feature_request()
+
+            # Checkpoint epoch state
+            self.epoch_tracker.save_checkpoint()
+            self.epoch_tracker.print_leaderboard()
+
+            # Periodic system summary
+            if self._cycle_count % self.REPORT_INTERVAL == 0:
+                summary = self.reporter.generate_system_summary()
+                print(f"[Supervisor] System summary: {summary.get('evolution_metrics', {})}")
 
             print(f"[Supervisor] Sleeping {interval}s...")
             time.sleep(interval)
