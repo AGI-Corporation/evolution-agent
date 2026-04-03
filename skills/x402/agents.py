@@ -16,7 +16,7 @@
 #   check        – probe a URL for x402 requirements without paying
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from evolution.agents import BaseAgent
 from skills.x402.client import (
@@ -62,8 +62,8 @@ class X402PaymentAgent(BaseAgent):
 
     def __init__(
         self,
-        private_key: str = None,
-        wallet_address: str = None,
+        private_key: Optional[str] = None,
+        wallet_address: Optional[str] = None,
         preferred_network: str = "base",
         max_auto_pay_usdc: float = 1.0,
     ):

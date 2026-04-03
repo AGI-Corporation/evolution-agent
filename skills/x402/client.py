@@ -38,6 +38,8 @@ logger = logging.getLogger(__name__)
 X402_PAYMENT_HEADER = "X-PAYMENT"
 X402_PAYMENT_RESPONSE_HEADER = "X-PAYMENT-RESPONSE"
 X402_VERSION = "1"
+# Grace period (seconds) subtracted from valid_after to account for clock skew
+VALID_AFTER_GRACE_SECONDS = 5
 
 # Supported EVM network names → chain-id
 SUPPORTED_NETWORKS: Dict[str, int] = {
@@ -189,7 +191,7 @@ class X402Wallet:
         so downstream logic (parsing, logging, memory) can be exercised.
         """
         nonce = str(uuid.uuid4())
-        valid_after = int(time.time()) - 5   # 5-second grace
+        valid_after = int(time.time()) - VALID_AFTER_GRACE_SECONDS
         valid_before = valid_after + int(option.get("maxTimeoutSeconds", 60))
 
         payload: Dict[str, Any] = {
@@ -250,7 +252,7 @@ class X402Wallet:
                 "value": int(option.get("maxAmountRequired", "0")),
                 "validAfter": valid_after,
                 "validBefore": valid_before,
-                "nonce": bytes.fromhex(nonce.replace("-", "")),
+                "nonce": uuid.UUID(nonce).bytes,
             }
             typed_data = {
                 "types": {

@@ -45,10 +45,15 @@ except ImportError:
             }
 
         async def submit_task(self, task_type, payload):
-            return f"task_{datetime.now(timezone.utc).timestamp()}"
+            return f"task_{int(datetime.now(timezone.utc).timestamp() * 1000)}"
 
 
 logger = logging.getLogger(__name__)
+
+
+def _utc_timestamp() -> str:
+    """Return the current UTC time as an ISO 8601 string."""
+    return datetime.now(timezone.utc).isoformat()
 
 # ---------------------------------------------------------------------------
 # Task-type constants (used by both sender and receiver)
@@ -184,7 +189,7 @@ class NANDABridge:
             payload={
                 "origin_node": self.node_id,
                 "context": mutation_context,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": _utc_timestamp(),
             },
         )
         logger.info("[NANDA] Broadcasted mutation task: %s", task_id)
@@ -215,7 +220,7 @@ class NANDABridge:
                 "skill_id": skill_id,
                 "name": name or f"{skill_id}:{context.get('action', '?')}",
                 "context": context,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": _utc_timestamp(),
             },
         )
         logger.info("[NANDA] Broadcasted skill task %s (type=%s): %s", name, task_type, task_id)
@@ -235,7 +240,7 @@ class NANDABridge:
             "task_id": task_id,
             "skill_id": skill_id,
             "result": result,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": _utc_timestamp(),
         }
         self._result_log.append(record)
 

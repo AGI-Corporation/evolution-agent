@@ -364,24 +364,10 @@ class Supervisor:
         # Broadcast result to NANDA network (best-effort, non-blocking)
         if self.nanda_bridge is not None:
             try:
-                task_id = f"local_{skill_id}_{datetime.now().timestamp()}"
-                asyncio.get_event_loop().run_until_complete(
+                task_id = f"local_{skill_id}_{int(datetime.now().timestamp() * 1000)}"
+                asyncio.run(
                     self.nanda_bridge.broadcast_result(task_id, result, skill_id)
                 )
-            except RuntimeError:
-                # No running event loop – create a temporary one
-                try:
-                    loop = asyncio.new_event_loop()
-                    loop.run_until_complete(
-                        self.nanda_bridge.broadcast_result(
-                            f"local_{skill_id}_{datetime.now().timestamp()}",
-                            result,
-                            skill_id,
-                        )
-                    )
-                    loop.close()
-                except Exception as exc:
-                    logger.debug("[Supervisor] NANDA broadcast skipped: %s", exc)
             except Exception as exc:
                 logger.debug("[Supervisor] NANDA broadcast skipped: %s", exc)
 

@@ -15,7 +15,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from evolution.agents import BaseAgent
 from skills.bitrefill.api import BitrefillAPIError, BitrefillClient
@@ -47,7 +47,7 @@ class BitrefillTradingAgent(BaseAgent):
         "balance_check",
     ]
 
-    def __init__(self, api_key: str = None, api_secret: str = None):
+    def __init__(self, api_key: Optional[str] = None, api_secret: Optional[str] = None):
         super().__init__("BitrefillTrader")
         self.client = BitrefillClient(api_key=api_key, api_secret=api_secret)
         self._order_history: List[Dict[str, Any]] = []
