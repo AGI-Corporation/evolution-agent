@@ -105,12 +105,7 @@ def main():
         # Run a fixed number of cycles then exit
         for cycle in range(args.cycles):
             print(f"\n[cli.evolve] Cycle {cycle + 1}/{args.cycles}")
-            supervisor.epoch_tracker.start_epoch()
-            fixed = supervisor.process_bug_fix()
-            if not fixed:
-                supervisor.process_feature_request()
-            supervisor.epoch_tracker.save_checkpoint()
-            supervisor.epoch_tracker.print_leaderboard()
+            supervisor.run_single_cycle()
             if cycle < args.cycles - 1:
                 import time
                 time.sleep(args.interval)

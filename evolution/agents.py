@@ -103,7 +103,9 @@ class ArchitectAgent(BaseAgent):
         # Enrich the prompt with live runtime context when available
         runtime_ctx = ""
         try:
-            ctx = self._context_bridge.execute(scope_name="calculate_division", depth=1)
+            # Use the issue type as a hint to find the relevant scope in the frame
+            scope_hint = issue.get("type", "").lower().replace("error", "").strip() or "main"
+            ctx = self._context_bridge.execute(scope_name=scope_hint, depth=1)
             if "error" not in ctx:
                 runtime_ctx = f"\nRUNTIME CONTEXT:\n{json.dumps(ctx, indent=2)}\n"
         except Exception:

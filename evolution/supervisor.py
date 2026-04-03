@@ -285,6 +285,30 @@ class Supervisor:
         except Exception as e:
             print(f"[Supervisor] NANDA broadcast failed (non-fatal): {e}")
 
+    def run_single_cycle(self):
+        """
+        Execute one full evolution cycle: start epoch, attempt bug-fix or
+        feature implementation, checkpoint epoch state, and return whether
+        any evolution was performed.
+        """
+        self._cycle_count += 1
+        print(f"\n[{datetime.now().isoformat()}] === Running Evolution Cycle {self._cycle_count} ===")
+
+        self.epoch_tracker.start_epoch()
+
+        fixed = self.process_bug_fix()
+        if not fixed:
+            self.process_feature_request()
+
+        self.epoch_tracker.save_checkpoint()
+        self.epoch_tracker.print_leaderboard()
+
+        if self._cycle_count % self.REPORT_INTERVAL == 0:
+            summary = self.reporter.generate_system_summary()
+            print(f"[Supervisor] System summary: {summary.get('evolution_metrics', {})}")
+
+        return fixed
+
     def run(self, interval=30):
         """
         Main loop: continuously check for bugs and features.
@@ -295,27 +319,7 @@ class Supervisor:
         print(f"[Supervisor] Cycle interval: {interval}s")
 
         while True:
-            self._cycle_count += 1
-            print(f"\n[{datetime.now().isoformat()}] === Running Evolution Cycle {self._cycle_count} ===")
-
-            # Start a new epoch for this cycle
-            self.epoch_tracker.start_epoch()
-
-            # Priority 1: Fix bugs
-            fixed = self.process_bug_fix()
-            if not fixed:
-                # Priority 2: Implement features
-                self.process_feature_request()
-
-            # Checkpoint epoch state
-            self.epoch_tracker.save_checkpoint()
-            self.epoch_tracker.print_leaderboard()
-
-            # Periodic system summary
-            if self._cycle_count % self.REPORT_INTERVAL == 0:
-                summary = self.reporter.generate_system_summary()
-                print(f"[Supervisor] System summary: {summary.get('evolution_metrics', {})}")
-
+            self.run_single_cycle()
             print(f"[Supervisor] Sleeping {interval}s...")
             time.sleep(interval)
 
